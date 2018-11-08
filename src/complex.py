@@ -88,6 +88,8 @@ class Connection:
         self.creds = creds
         self.realm = lp.get('realm')
         self.__ldap_connect()
+        self.schema = {}
+        self.__load_schema()
 
     def __kinit_for_gssapi(self):
         p = Popen(['kinit', '%s@%s' % (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username()], stdin=PIPE, stdout=PIPE)
@@ -110,6 +112,57 @@ class Connection:
         result = self.ldap_search_s('<WKGUID=%s,%s>' % (wkguiduc, self.realm_to_dn(self.realm)), ldap.SCOPE_SUBTREE, '(objectClass=container)', stringify_ldap(['distinguishedName']))
         if result and len(result) > 0 and len(result[0]) > 1 and 'distinguishedName' in result[0][1] and len(result[0][1]['distinguishedName']) > 0:
             return result[0][1]['distinguishedName'][-1]
+
+    def __load_schema(self):
+        dn = self.l.search_subschemasubentry_s()
+        results = self.l.read_subschemasubentry_s(dn)
+
+        self.schema['attributeTypes'] = {}
+        for attributeType in results['attributeTypes']:
+            m = re.match(b'\(\s+(?P<id>[0-9\.]+)\s+NAME\s+\'(?P<name>[\-\w]+)\'\s+(SYNTAX\s+\'(?P<syntax>[0-9\.]+)\'\s+)?(?P<info>.*)\)', attributeType)
+            if m:
+                name = m.group('name')
+                self.schema['attributeTypes'][name] = {}
+                self.schema['attributeTypes'][name]['id'] = m.group('id')
+                self.schema['attributeTypes'][name]['syntax'] = m.group('syntax')
+                self.schema['attributeTypes'][name]['multi-valued'] = b'SINGLE-VALUE' not in m.group('info')
+                self.schema['attributeTypes'][name]['collective'] = b'COLLECTIVE' in m.group('info')
+                self.schema['attributeTypes'][name]['user-modifiable'] = b'NO-USER-MODIFICATION' not in m.group('info')
+                if b'USAGE' in m.group('info'):
+                    usage = re.findall(b'.*\s+USAGE\s+(\w+)', m.group('info'))
+                    self.schema['attributeTypes'][name]['usage'] = usage[-1] if usage else 'userApplications'
+                else:
+                    self.schema['attributeTypes'][name]['usage'] = 'userApplications'
+            else:
+                raise ldap.LDAPError('Failed to parse attributeType: %s' % attributeType.decode())
+
+        self.schema['objectClasses'] = {}
+        for objectClass in results['objectClasses']:
+            m = re.match(b'\(\s+(?P<id>[0-9\.]+)\s+NAME\s+\'(?P<name>[\-\w]+)\'\s+(SUP\s+(?P<superior>[\-\w]+)\s+)?(?P<type>\w+)\s+(MUST\s+\((?P<must>[^\)]*)\)\s+)?(MAY\s+\((?P<may>[^\)]*)\)\s+)?\)', objectClass)
+            if m:
+                name = m.group('name')
+                self.schema['objectClasses'][name] = {}
+                self.schema['objectClasses'][name]['id'] = m.group('id')
+                self.schema['objectClasses'][name]['superior'] = m.group('superior')
+                self.schema['objectClasses'][name]['type'] = m.group('type')
+                self.schema['objectClasses'][name]['must'] = m.group('must').strip().split(b' $ ') if m.group('must') else []
+                self.schema['objectClasses'][name]['may'] = m.group('may').strip().split(b' $ ') if m.group('may') else []
+            else:
+                raise ldap.LDAPError('Failed to parse objectClass: %s' % objectClass.decode())
+
+        self.schema['dITContentRules'] = {}
+        for dITContentRule in results['dITContentRules']:
+            m = re.match(b'\(\s+(?P<id>[0-9\.]+)\s+NAME\s+\'(?P<name>[\-\w]+)\'\s*(AUX\s+\((?P<aux>[^\)]*)\))?\s*(MUST\s+\((?P<must>[^\)]*)\)\s+)?\s*(MAY\s+\((?P<may>[^\)]*)\))?\s*(NOT\s+\((?P<not>[^\)]*)\))?\s*\)', dITContentRule)
+            if m:
+                name = m.group('name')
+                self.schema['dITContentRules'][name] = {}
+                self.schema['dITContentRules'][name]['id'] = m.group('id')
+                self.schema['dITContentRules'][name]['must'] = m.group('must').strip().split(b' $ ') if m.group('must') else []
+                self.schema['dITContentRules'][name]['may'] = m.group('may').strip().split(b' $ ') if m.group('may') else []
+                self.schema['dITContentRules'][name]['aux'] = m.group('aux').strip().split(b' $ ') if m.group('aux') else []
+                self.schema['dITContentRules'][name]['not'] = m.group('not').strip().split(b' $ ') if m.group('not') else []
+            else:
+                raise ldap.LDAPError('Failed to parse dITContentRule: %s' % dITContentRule.decode())
 
     def containers(self, container=None):
         if not container:
