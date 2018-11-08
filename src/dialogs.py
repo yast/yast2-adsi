@@ -94,7 +94,22 @@ class ADSI:
                 ret = event['ID']
             else:
                 raise Exception('ID not found in response %s' % str(event))
-            if str(ret) == 'next':
+            if ret == 'adsi_tree':
+                pass
+            elif ret == 'next':
                 break
         return ret
+
+    def __fetch_children(self, parent):
+        return [Item(Id(e[0]), e[0].split(',')[0], False, self.__fetch_children(e[0])) for e in self.conn.containers(parent)]
+
+    def __ldap_tree(self):
+        top = self.conn.realm_to_dn(self.conn.realm)
+        items = self.__fetch_children(top)
+        return Tree(Id('adsi_tree'), Opt('notify', 'immediate', 'notifyContextMenu'), 'ADSI Edit', [
+                Item('Default naming context', False, [
+                    Item(Id(top), top, False, items)
+                ])
+            ]
+        )
 

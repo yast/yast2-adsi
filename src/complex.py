@@ -114,8 +114,8 @@ class Connection:
     def containers(self, container=None):
         if not container:
             container = self.realm_to_dn(self.realm)
-        search = '(&(|(objectClass=organizationalUnit)(objectCategory=Container)(objectClass=builtinDomain))(!(|(cn=System)(cn=Program Data))))'
-        ret = self.ldap_search(container, ldap.SCOPE_ONELEVEL, search, ['name', 'distinguishedName'])
+        search = '(objectClass=*)'
+        ret = self.ldap_search(container, ldap.SCOPE_ONELEVEL, search, ['name', 'objectClass'])
         return [(e[0], e[1]['name'][-1]) for e in ret]
 
     def obj(self, dn, attrs=[]):
