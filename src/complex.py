@@ -87,6 +87,7 @@ class Connection:
         self.lp = lp
         self.creds = creds
         self.realm = lp.get('realm')
+        self.realm_dn = self.realm_to_dn(self.realm)
         self.__ldap_connect()
         self.schema = {}
         self.__load_schema()
@@ -109,9 +110,14 @@ class Connection:
             wkguiduc = 'A361B2FFFFD211D1AA4B00C04FD7D83A'
         elif strcmp(container, 'users'):
             wkguiduc = 'A9D1CA15768811D1ADED00C04FD8D5CD'
-        result = self.ldap_search_s('<WKGUID=%s,%s>' % (wkguiduc, self.realm_to_dn(self.realm)), ldap.SCOPE_SUBTREE, '(objectClass=container)', stringify_ldap(['distinguishedName']))
+        result = self.ldap_search_s('<WKGUID=%s,%s>' % (wkguiduc, self.realm_dn), ldap.SCOPE_SUBTREE, '(objectClass=container)', stringify_ldap(['distinguishedName']))
         if result and len(result) > 0 and len(result[0]) > 1 and 'distinguishedName' in result[0][1] and len(result[0][1]['distinguishedName']) > 0:
             return result[0][1]['distinguishedName'][-1]
+
+    def __find_inferior_classes(self, name):
+        dn = 'CN=Schema,CN=Configuration,%s' % self.realm_dn
+        search = '(|(possSuperiors=%s)(systemPossSuperiors=%s))' % (name, name)
+        return [item[-1]['lDAPDisplayName'][-1] for item in self.ldap_search_s(dn, ldap.SCOPE_SUBTREE, search, ['lDAPDisplayName'])]
 
     def __load_schema(self):
         dn = self.l.search_subschemasubentry_s()
@@ -144,6 +150,7 @@ class Connection:
                 self.schema['objectClasses'][name] = {}
                 self.schema['objectClasses'][name]['id'] = m.group('id')
                 self.schema['objectClasses'][name]['superior'] = m.group('superior')
+                self.schema['objectClasses'][name]['inferior'] = self.__find_inferior_classes(name.decode())
                 self.schema['objectClasses'][name]['type'] = m.group('type')
                 self.schema['objectClasses'][name]['must'] = m.group('must').strip().split(b' $ ') if m.group('must') else []
                 self.schema['objectClasses'][name]['may'] = m.group('may').strip().split(b' $ ') if m.group('may') else []
@@ -166,10 +173,14 @@ class Connection:
 
     def containers(self, container=None):
         if not container:
-            container = self.realm_to_dn(self.realm)
+            container = self.realm_dn
         search = '(objectClass=*)'
         ret = self.ldap_search(container, ldap.SCOPE_ONELEVEL, search, ['name', 'objectClass'])
-        return [(e[0], e[1]['name'][-1]) for e in ret]
+        results = []
+        for e in ret:
+            if len(self.schema['objectClasses'][e[1]['objectClass'][-1]]['inferior']) > 0:
+                results.append((e[0], e[1]['name'][-1]))
+        return results
 
     def obj(self, dn, attrs=[]):
         if six.PY3 and type(dn) is bytes:
