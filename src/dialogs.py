@@ -81,7 +81,8 @@ class ADSI:
     def Show(self):
         if not self.got_creds:
             return Symbol('abort')
-        Wizard.SetContentsButtons('ADSI Edit', Empty(), '', 'Back', 'Close')
+        UI.SetApplicationTitle('ADSI Edit')
+        Wizard.SetContentsButtons('', self.__ldap_tree(), '', 'Back', 'Close')
 
         Wizard.HideBackButton()
         Wizard.HideAbortButton()
