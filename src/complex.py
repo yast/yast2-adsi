@@ -17,6 +17,24 @@ from samba.credentials import Credentials, MUST_USE_KERBEROS
 
 import six
 
+def y2error_dialog(msg):
+    from yast import UI, Opt, HBox, HSpacing, VBox, VSpacing, Label, Right, PushButton, Id
+    if six.PY3 and type(msg) is bytes:
+        msg = msg.decode('utf-8')
+    ans = False
+    UI.SetApplicationTitle('Error')
+    UI.OpenDialog(Opt('warncolor'), HBox(HSpacing(1), VBox(
+        VSpacing(.3),
+        Label(msg),
+        Right(HBox(
+            PushButton(Id('ok'), 'OK')
+        )),
+        VSpacing(.3),
+    ), HSpacing(1)))
+    ret = UI.UserInput()
+    if str(ret) == 'ok' or str(ret) == 'abort' or str(ret) == 'cancel':
+        UI.CloseDialog()
+
 def strcmp(first, second):
     if six.PY3:
         if isinstance(first, six.string_types):
@@ -230,6 +248,8 @@ class Connection:
             except ldap.SERVER_DOWN:
                 self.__ldap_connect()
                 return self.l.search_s(*args)
+        except ldap.LDAPError as e:
+            y2error_dialog(self.__ldap_exc_msg(e))
         except Exception as e:
             ycpbuiltins.y2error(traceback.format_exc())
             ycpbuiltins.y2error('ldap.search_s: %s\n' % self.__ldap_exc_msg(e))
@@ -249,7 +269,7 @@ class Connection:
                 else:
                     if t == ldap.RES_SEARCH_ENTRY:
                         result.append(d[0])
-        except ldap.LDAPError:
+        except ldap.LDAPError as e:
             pass
         except Exception as e:
             ycpbuiltins.y2error(traceback.format_exc())
@@ -273,6 +293,8 @@ class Connection:
             except ldap.SERVER_DOWN:
                 self.__ldap_connect()
                 return self.l.modify(*args)
+        except ldap.LDAPError as e:
+            y2error_dialog(self.__ldap_exc_msg(e))
         except Exception as e:
             ycpbuiltins.y2error(traceback.format_exc())
             ycpbuiltins.y2error('ldap.modify: %s\n' % self.__ldap_exc_msg(e))
@@ -284,6 +306,8 @@ class Connection:
             except ldap.SERVER_DOWN:
                 self.__ldap_connect()
                 return self.l.delete_s(*args)
+        except ldap.LDAPError as e:
+            y2error_dialog(self.__ldap_exc_msg(e))
         except Exception as e:
             ycpbuiltins.y2error(traceback.format_exc())
             ycpbuiltins.y2error('ldap.delete_s: %s\n' % self.__ldap_exc_msg(e))
