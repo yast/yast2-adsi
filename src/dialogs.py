@@ -87,6 +87,8 @@ class ADSI:
         Wizard.HideBackButton()
         Wizard.HideAbortButton()
         UI.SetFocus('adsi_tree')
+        current_container = None
+        current_object = None
         while True:
             event = UI.WaitForEvent()
             if 'WidgetID' in event:
@@ -98,10 +100,15 @@ class ADSI:
             if ret == 'adsi_tree':
                 choice = UI.QueryWidget('adsi_tree', 'Value')
                 if 'DC=' in choice:
+                    current_container = choice
+                    current_object = choice
                     self.__refresh(choice)
                 else:
                     current_container = None
+                    current_object = None
                     UI.ReplaceWidget('rightPane', Empty())
+            elif ret == 'items':
+                current_object = UI.QueryWidget('items', 'Value')
             elif ret == 'next':
                 break
         return ret
