@@ -78,6 +78,10 @@ class ADSI:
             VSpacing(.5)
         ), HSpacing(1)))
 
+    def __delete_selected_obj(self, current_object):
+        if self.__warn_delete(current_object):
+            self.conn.ldap_delete(current_object)
+
     def Show(self):
         if not self.got_creds:
             return Symbol('abort')
@@ -103,15 +107,44 @@ class ADSI:
                     current_container = choice
                     current_object = choice
                     self.__refresh(choice)
+                    if not have_advanced_gui:
+                        UI.ChangeWidget(Id('delete'), "Enabled", True)
                 else:
                     current_container = None
                     current_object = None
                     UI.ReplaceWidget('rightPane', Empty())
+                    if not have_advanced_gui:
+                        UI.ChangeWidget(Id('delete'), "Enabled", False)
             elif ret == 'items':
                 current_object = UI.QueryWidget('items', 'Value')
             elif ret == 'next':
                 break
+            elif str(ret) == 'delete':
+                self.__delete_selected_obj(current_object)
+                self.__refresh(current_container)
         return ret
+
+    def __warn_delete(self, name):
+        if six.PY3 and type(name) is bytes:
+            name = name.decode('utf-8')
+        ans = False
+        UI.SetApplicationTitle('Delete')
+        UI.OpenDialog(Opt('warncolor'), HBox(HSpacing(1), VBox(
+            VSpacing(.3),
+            Label('Are you sure you want to delete \'%s\'?' % name),
+            Right(HBox(
+                PushButton(Id('yes'), 'Yes'),
+                PushButton(Id('no'), 'No')
+            )),
+            VSpacing(.3),
+        ), HSpacing(1)))
+        ret = UI.UserInput()
+        if str(ret) == 'yes':
+            ans = True
+        elif str(ret) == 'no' or str(ret) == 'abort' or str(ret) == 'cancel':
+            ans = False
+        UI.CloseDialog()
+        return ans
 
     def __refresh(self, current_container, obj_id=None):
         if current_container:
@@ -132,11 +165,21 @@ class ADSI:
     def __ldap_tree(self):
         top = self.conn.realm_to_dn(self.conn.realm)
         items = self.__fetch_children(top)
-        return Tree(Id('adsi_tree'), Opt('notify', 'immediate', 'notifyContextMenu'), 'ADSI Edit', [
+
+        if not have_advanced_gui:
+            menu = HBox(
+                PushButton(Id('delete'), Opt('disabled'), "Delete"),
+            )
+        else:
+            menu = Empty()
+
+        return VBox(
+            Tree(Id('adsi_tree'), Opt('notify', 'immediate', 'notifyContextMenu'), 'ADSI Edit', [
                 Item('Default naming context', False, [
                     Item(Id(top), top, False, items)
                 ])
-            ]
+            ]),
+            menu
         )
 
     def __adsi_page(self):
