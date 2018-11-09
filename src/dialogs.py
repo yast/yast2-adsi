@@ -82,10 +82,11 @@ class ADSI:
         if not self.got_creds:
             return Symbol('abort')
         UI.SetApplicationTitle('ADSI Edit')
-        Wizard.SetContentsButtons('', self.__ldap_tree(), '', 'Back', 'Close')
+        Wizard.SetContentsButtons('', self.__adsi_page(), '', 'Back', 'Close')
 
         Wizard.HideBackButton()
         Wizard.HideAbortButton()
+        UI.SetFocus('adsi_tree')
         while True:
             event = UI.WaitForEvent()
             if 'WidgetID' in event:
@@ -95,10 +96,28 @@ class ADSI:
             else:
                 raise Exception('ID not found in response %s' % str(event))
             if ret == 'adsi_tree':
-                pass
+                choice = UI.QueryWidget('adsi_tree', 'Value')
+                if 'DC=' in choice:
+                    self.__refresh(choice)
+                else:
+                    current_container = None
+                    UI.ReplaceWidget('rightPane', Empty())
             elif ret == 'next':
                 break
         return ret
+
+    def __refresh(self, current_container, obj_id=None):
+        if current_container:
+            UI.ReplaceWidget('rightPane', self.__objects_tab(current_container))
+            if obj_id:
+                UI.ChangeWidget('items', 'CurrentItem', obj_id)
+        else:
+            UI.ReplaceWidget('rightPane', Empty())
+
+    def __objects_tab(self, container):
+        header = Header('Name', 'Class', 'Distinguished Name')
+        items = [Item(Id(obj[2]), obj[0], obj[1], obj[2]) for obj in self.conn.objs(container)]
+        return Table(Id('items'), Opt('notify', 'notifyContextMenu'), header, items)
 
     def __fetch_children(self, parent):
         return [Item(Id(e[0]), e[0].split(',')[0], False, self.__fetch_children(e[0])) for e in self.conn.containers(parent)]
@@ -111,5 +130,11 @@ class ADSI:
                     Item(Id(top), top, False, items)
                 ])
             ]
+        )
+
+    def __adsi_page(self):
+        return HBox(
+            HWeight(1, self.__ldap_tree()),
+            HWeight(2, ReplacePoint(Id('rightPane'), Empty()))
         )
 

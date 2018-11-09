@@ -182,6 +182,13 @@ class Connection:
                 results.append((e[0], e[1]['name'][-1]))
         return results
 
+    def objs(self, container=None):
+        if not container:
+            container = self.realm_dn
+        search = '(objectClass=*)'
+        ret = self.ldap_search(container, ldap.SCOPE_ONELEVEL, search, ['name', 'objectClass'])
+        return [(e[1]['name'][-1], e[1]['objectClass'][-1], e[0]) for e in ret]
+
     def obj(self, dn, attrs=[]):
         if six.PY3 and type(dn) is bytes:
             dn = dn.decode('utf-8')
