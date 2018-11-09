@@ -109,16 +109,20 @@ class ADSI:
                     self.__refresh(choice)
                     if not have_advanced_gui:
                         UI.ChangeWidget(Id('delete'), "Enabled", True)
+                        UI.ChangeWidget(Id('refresh'), 'Enabled', True)
                 else:
                     current_container = None
                     current_object = None
                     UI.ReplaceWidget('rightPane', Empty())
                     if not have_advanced_gui:
                         UI.ChangeWidget(Id('delete'), "Enabled", False)
+                        UI.ChangeWidget(Id('refresh'), 'Enabled', False)
             elif ret == 'items':
                 current_object = UI.QueryWidget('items', 'Value')
             elif ret == 'next':
                 break
+            elif ret == 'refresh':
+                self.__refresh(current_container)
             elif str(ret) == 'delete':
                 self.__delete_selected_obj(current_object)
                 self.__refresh(current_container)
@@ -169,6 +173,7 @@ class ADSI:
         if not have_advanced_gui:
             menu = HBox(
                 PushButton(Id('delete'), Opt('disabled'), "Delete"),
+                PushButton(Id('refresh'), Opt('disabled'), 'Refresh')
             )
         else:
             menu = Empty()
