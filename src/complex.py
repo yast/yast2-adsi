@@ -226,6 +226,7 @@ class Connection:
         except LdapException as e:
             ycpbuiltins.y2error(traceback.format_exc())
             ycpbuiltins.y2error('ldap.add_s: %s\n' % self.__ldap_exc_msg(e))
+        return dn
 
     def __ldap_exc_msg(self, e):
         if len(e.args) > 0 and \

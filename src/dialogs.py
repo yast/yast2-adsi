@@ -219,7 +219,7 @@ class ADSI:
                 if 'DC=' in choice:
                     current_container = choice
                     current_object = choice
-                    self.__refresh(choice)
+                    self.__load_right_pane(current_container)
                     if not have_advanced_gui:
                         UI.ReplaceWidget('new_but',  MenuButton(Id('new'), "New", [
                             Item(Id('context_add_object'), 'Object...')
@@ -237,8 +237,8 @@ class ADSI:
             elif ret == 'context_add_object':
                 obj = NewObjDialog(self.conn, current_container).Show()
                 if obj:
-                    self.conn.add_obj(current_container, obj)
-                self.__refresh(current_container)
+                    dn = self.conn.add_obj(current_container, obj)
+                    self.__refresh(current_container, dn)
             elif ret == 'items':
                 current_object = UI.QueryWidget('items', 'Value')
             elif ret == 'next':
@@ -248,6 +248,7 @@ class ADSI:
             elif str(ret) == 'delete':
                 self.__delete_selected_obj(current_object)
                 self.__refresh(current_container)
+            UI.SetApplicationTitle('ADSI Edit')
         return ret
 
     def __warn_delete(self, name):
@@ -274,9 +275,15 @@ class ADSI:
 
     def __refresh(self, current_container, obj_id=None):
         if current_container:
+            UI.ReplaceWidget('ldap_tree', self.__ldap_tree(current_container))
+            UI.ChangeWidget('adsi_tree', 'CurrentItem', Id(current_container))
+        self.__load_right_pane(current_container, obj_id)
+
+    def __load_right_pane(self, current_container, obj_id=None):
+        if current_container:
             UI.ReplaceWidget('rightPane', self.__objects_tab(current_container))
             if obj_id:
-                UI.ChangeWidget('items', 'CurrentItem', obj_id)
+                UI.ChangeWidget('items', 'CurrentItem', Id(obj_id))
         else:
             UI.ReplaceWidget('rightPane', Empty())
 
@@ -285,13 +292,21 @@ class ADSI:
         items = [Item(Id(obj[2]), obj[0], obj[1], obj[2]) for obj in self.conn.objs(container)]
         return Table(Id('items'), Opt('notify', 'notifyContextMenu'), header, items)
 
-    def __fetch_children(self, parent):
-        return [Item(Id(e[0]), e[0].split(',')[0], False, self.__fetch_children(e[0])) for e in self.conn.containers(parent)]
+    def __fetch_children(self, parent, expand):
+        return [Item(Id(e[0]), e[0].split(',')[0], e[0].lower() in expand.lower(), self.__fetch_children(e[0], expand)) for e in self.conn.containers(parent)]
 
-    def __ldap_tree(self):
+    def __ldap_tree(self, expand=''):
         top = self.conn.realm_to_dn(self.conn.realm)
-        items = self.__fetch_children(top)
+        items = self.__fetch_children(top, expand)
 
+        return Tree(Id('adsi_tree'), Opt('notify', 'immediate', 'notifyContextMenu'), 'ADSI Edit', [
+                Item('Default naming context', True, [
+                    Item(Id(top), top, True, items)
+                ])
+            ]
+        )
+
+    def __adsi_page(self):
         if not have_advanced_gui:
             menu = HBox(
                 ReplacePoint(Id('new_but'),
@@ -303,18 +318,11 @@ class ADSI:
         else:
             menu = Empty()
 
-        return VBox(
-            Tree(Id('adsi_tree'), Opt('notify', 'immediate', 'notifyContextMenu'), 'ADSI Edit', [
-                Item('Default naming context', False, [
-                    Item(Id(top), top, False, items)
-                ])
-            ]),
-            menu
-        )
-
-    def __adsi_page(self):
         return HBox(
-            HWeight(1, self.__ldap_tree()),
+            HWeight(1, VBox(
+                ReplacePoint(Id('ldap_tree'), self.__ldap_tree()),
+                menu
+            )),
             HWeight(2, ReplacePoint(Id('rightPane'), Empty()))
         )
 
