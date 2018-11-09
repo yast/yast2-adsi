@@ -189,6 +189,10 @@ class Connection:
             else:
                 raise ldap.LDAPError('Failed to parse dITContentRule: %s' % dITContentRule.decode())
 
+    def container_inferiors(self, container):
+        objectClass = self.obj(container, ['objectClass'])[-1]['objectClass'][-1]
+        return self.schema['objectClasses'][objectClass]['inferior']
+
     def containers(self, container=None):
         if not container:
             container = self.realm_dn
@@ -214,6 +218,14 @@ class Connection:
 
     def objects_list(self, container):
         return self.ldap_search_s(container, ldap.SCOPE_ONELEVEL, '(|(objectCategory=person)(objectCategory=group)(objectCategory=computer))', [])
+
+    def add_obj(self, container, attrs):
+        dn = 'CN=%s,%s' % (attrs['cn'], container)
+        try:
+            self.ldap_add(dn, addlist(stringify_ldap(attrs)))
+        except LdapException as e:
+            ycpbuiltins.y2error(traceback.format_exc())
+            ycpbuiltins.y2error('ldap.add_s: %s\n' % self.__ldap_exc_msg(e))
 
     def __ldap_exc_msg(self, e):
         if len(e.args) > 0 and \

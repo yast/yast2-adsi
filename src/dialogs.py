@@ -19,6 +19,119 @@ def have_x():
     return p.wait() == 0
 have_advanced_gui = have_x()
 
+class NewObjDialog:
+    def __init__(self, conn, container):
+        self.conn = conn
+        self.container = container
+        self.obj = {}
+        self.dialog_seq = 0
+        self.dialog = None
+
+    def __fetch_pane(self):
+        if not self.dialog:
+            self.dialog = self.__object_dialog()
+        return self.dialog[self.dialog_seq][0]
+
+    def __new(self):
+        pane = self.__fetch_pane()
+        return MinSize(56, 22, HBox(HSpacing(3), VBox(
+                VSpacing(1),
+                ReplacePoint(Id('new_pane'), pane),
+                VSpacing(1),
+            ), HSpacing(3)))
+
+    def __object_dialog(self):
+        inferiors = sorted(self.conn.container_inferiors(self.container))
+        items = [Item(name) for name in inferiors]
+        return [
+            [VBox(
+                Left(Label(Id('objectClass_label'), 'Select a class:')),
+                Table(Id('objectClass'), Header(''), items),
+                Bottom(Right(HBox(
+                    PushButton(Id('back'), Opt('disabled'), '< Back'),
+                    PushButton(Id('next'), 'Next >'),
+                    PushButton(Id('cancel'), 'Cancel'),
+                ))),
+            ),
+            ['objectClass'], # known keys
+            ['objectClass'], # required keys
+            None, # dialog hook
+            ],
+            [VBox(
+                Left(Label('Attribute:\tcn')),
+                Left(Label('Syntax:\tUnicode String')),
+                Left(Label('Description:\tCommon-Name')),
+                Left(InputField(Id('cn'), Opt('hstretch'), 'Value:')),
+                Bottom(Right(HBox(
+                    PushButton(Id('back'), '< Back'),
+                    PushButton(Id('finish'), 'Finish'),
+                    PushButton(Id('cancel'), 'Cancel'),
+                ))),
+            ),
+            ['cn'], # known keys
+            ['cn'], # required keys
+            None, # dialog hook
+            ],
+        ]
+
+    def __warn_label(self, key):
+        label = UI.QueryWidget('%s_label' % key, 'Value')
+        if not label:
+            label = UI.QueryWidget(key, 'Label')
+        if label[-2:] != ' *':
+            if not UI.ChangeWidget('%s_label' % key, 'Value', '%s *' % label):
+                UI.ChangeWidget(key, 'Label', '%s *' % label)
+
+    def __fetch_values(self, back=False):
+        ret = True
+        known_value_keys = self.dialog[self.dialog_seq][1]
+        for key in known_value_keys:
+            value = UI.QueryWidget(key, 'Value')
+            if value or type(value) == bool:
+                self.obj[key] = value
+        required_value_keys = self.dialog[self.dialog_seq][2]
+        for key in required_value_keys:
+            if not key in self.obj or not self.obj[key]:
+                self.__warn_label(key)
+                ycpbuiltins.y2error('Missing value for %s' % key)
+                ret = False
+        return ret
+
+    def __set_values(self):
+        for key in self.obj:
+            UI.ChangeWidget(key, 'Value', self.obj[key])
+
+    def __dialog_hook(self):
+        hook = self.dialog[self.dialog_seq][3]
+        if hook:
+            hook()
+
+    def Show(self):
+        UI.SetApplicationTitle('Create Object')
+        UI.OpenDialog(self.__new())
+        while True:
+            self.__dialog_hook()
+            ret = UI.UserInput()
+            if str(ret) == 'abort' or str(ret) == 'cancel':
+                ret = None
+                break
+            elif str(ret) == 'next':
+                if self.__fetch_values():
+                    self.dialog_seq += 1
+                    UI.ReplaceWidget('new_pane', self.__fetch_pane())
+                    self.__set_values()
+            elif str(ret) == 'back':
+                self.__fetch_values(True)
+                self.dialog_seq -= 1;
+                UI.ReplaceWidget('new_pane', self.__fetch_pane())
+                self.__set_values()
+            elif str(ret) == 'finish':
+                if self.__fetch_values():
+                    ret = self.obj
+                    break
+        UI.CloseDialog()
+        return ret
+
 class ADSI:
     def __init__(self, lp, creds):
         self.realm = lp.get('realm')
@@ -108,6 +221,9 @@ class ADSI:
                     current_object = choice
                     self.__refresh(choice)
                     if not have_advanced_gui:
+                        UI.ReplaceWidget('new_but',  MenuButton(Id('new'), "New", [
+                            Item(Id('context_add_object'), 'Object...')
+                        ]))
                         UI.ChangeWidget(Id('delete'), "Enabled", True)
                         UI.ChangeWidget(Id('refresh'), 'Enabled', True)
                 else:
@@ -115,8 +231,14 @@ class ADSI:
                     current_object = None
                     UI.ReplaceWidget('rightPane', Empty())
                     if not have_advanced_gui:
+                        UI.ReplaceWidget('new_but',  MenuButton(Id('new'), Opt('disabled'), "New", []))
                         UI.ChangeWidget(Id('delete'), "Enabled", False)
                         UI.ChangeWidget(Id('refresh'), 'Enabled', False)
+            elif ret == 'context_add_object':
+                obj = NewObjDialog(self.conn, current_container).Show()
+                if obj:
+                    self.conn.add_obj(current_container, obj)
+                self.__refresh(current_container)
             elif ret == 'items':
                 current_object = UI.QueryWidget('items', 'Value')
             elif ret == 'next':
@@ -172,6 +294,9 @@ class ADSI:
 
         if not have_advanced_gui:
             menu = HBox(
+                ReplacePoint(Id('new_but'),
+                    MenuButton(Id('new'), Opt('disabled'), "New", [])
+                ),
                 PushButton(Id('delete'), Opt('disabled'), "Delete"),
                 PushButton(Id('refresh'), Opt('disabled'), 'Refresh')
             )
