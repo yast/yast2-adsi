@@ -19,6 +19,55 @@ def have_x():
     return p.wait() == 0
 have_advanced_gui = have_x()
 
+class ObjAttrs:
+    def __init__(self, conn, obj):
+        self.conn = conn
+        self.obj = obj
+        attrs = []
+        for objectClass in self.obj['objectClass'][1:]:
+            data = self.conn.schema['objectClasses'][objectClass]
+            attrs.extend(data['must'])
+            attrs.extend(data['may'])
+        for attr in attrs:
+            if not attr.decode() in self.obj.keys():
+                self.obj[attr.decode()] = None
+
+    def __new(self):
+        items = [
+            Item(
+                Id(key),
+                key,
+                '<not set>' if self.obj[key] == None else self.obj[key][-1] if len(self.obj[key]) == 1 else b'; '.join(self.obj[key])
+            )
+            for key in sorted(self.obj.keys())
+        ]
+        return MinSize(70, 40, HBox(HSpacing(3), VBox(
+            VSpacing(1),
+            VWeight(20, Table(Opt('vstretch'), Header('Attribute', 'Value'), items)),
+            VWeight(1, Bottom(Right(HBox(
+                PushButton(Id('ok'), 'OK'),
+                PushButton(Id('cancel'), 'Cancel'),
+                PushButton(Id('apply'), 'Apply')
+            )))),
+            VSpacing(1),
+        ), HSpacing(3)))
+
+    def Show(self):
+        UI.SetApplicationTitle(b'CN=%s Properties' % self.obj['cn'][-1])
+        UI.OpenDialog(self.__new())
+        while True:
+            ret = UI.UserInput()
+            if ret == 'abort' or ret == 'cancel':
+                ret = None
+                break
+            elif ret == 'ok':
+                ret = self.obj
+                break
+            elif ret == 'apply':
+                ret = self.obj
+        UI.CloseDialog()
+        return ret
+
 class NewObjDialog:
     def __init__(self, conn, container):
         self.conn = conn
@@ -241,6 +290,7 @@ class ADSI:
                     self.__refresh(current_container, dn)
             elif ret == 'items':
                 current_object = UI.QueryWidget('items', 'Value')
+                obj = ObjAttrs(self.conn, self.conn.obj(current_object)[-1]).Show()
             elif ret == 'next':
                 break
             elif ret == 'refresh':
