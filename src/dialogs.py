@@ -12,12 +12,61 @@ import six
 from ldap.filter import filter_format
 from ldap import SCOPE_SUBTREE as SUBTREE
 from samba.credentials import MUST_USE_KERBEROS
+import copy
 
 def have_x():
     from subprocess import Popen, PIPE
     p = Popen(['xset', '-q'], stdout=PIPE, stderr=PIPE)
     return p.wait() == 0
 have_advanced_gui = have_x()
+
+class AttrEdit:
+    def __init__(self, conn, attr, val):
+        self.conn = conn
+        self.attribute = attr
+        self.value = val
+        self.attr_type = self.conn.schema['attributeTypes'][self.attribute.encode()]
+
+    def __dialog(self):
+        opts = tuple()
+        if not self.attr_type['user-modifiable']:
+            opts = tuple(['disabled'])
+        input_box = InputField(Id('value'), Opt('hstretch', *opts), 'Value:', self.value)
+        return MinSize(60, 8, HBox(HSpacing(3), VBox(
+            VSpacing(1),
+            Left(Label('Attribute:\t%s' % self.attribute)),
+            VSpacing(1),
+            Left(input_box),
+            Bottom(
+                HBox(
+                    Left(PushButton(Id('clear'), Opt(*opts), 'Clear')),
+                    Right(PushButton(Id('ok'), 'OK')),
+                    Right(PushButton(Id('cancel'), 'Cancel')),
+                )
+            ),
+            VSpacing(1),
+        ), HSpacing(3)))
+
+    def Show(self):
+        UI.SetApplicationTitle('String Attribute Editor')
+        if not self.attr_type['multi-valued']:
+            UI.OpenDialog(self.__dialog())
+        else:
+            return None
+        while True:
+            ret = UI.UserInput()
+            if ret == 'abort' or ret == 'cancel':
+                ret = None
+                break
+            elif ret == 'ok':
+                ret = UI.QueryWidget(Id('value'), 'Value')
+                if not self.attr_type['multi-valued']:
+                    ret = [ret]
+                break
+            elif ret == 'clear':
+                pass # Clear the dialog
+        UI.CloseDialog()
+        return ret
 
 class ObjAttrs:
     def __init__(self, conn, obj):
@@ -43,7 +92,7 @@ class ObjAttrs:
         ]
         return MinSize(70, 40, HBox(HSpacing(3), VBox(
             VSpacing(1),
-            VWeight(20, Table(Opt('vstretch'), Header('Attribute', 'Value'), items)),
+            VWeight(20, Table(Id('attrs'), Opt('vstretch', 'notify'), Header('Attribute', 'Value'), items)),
             VWeight(1, Bottom(Right(HBox(
                 PushButton(Id('ok'), 'OK'),
                 PushButton(Id('cancel'), 'Cancel'),
@@ -65,6 +114,12 @@ class ObjAttrs:
                 break
             elif ret == 'apply':
                 ret = self.obj
+            elif ret == 'attrs':
+                attr = UI.QueryWidget('attrs', 'Value')
+                val = '' if self.obj[attr] == None else self.obj[attr][-1] if len(self.obj[attr]) == 1 else self.obj[attr]
+                new_val = AttrEdit(self.conn, attr, val).Show()
+                if self.obj[attr] != new_val:
+                    self.obj[attr] = new_val
         UI.CloseDialog()
         return ret
 
@@ -290,7 +345,12 @@ class ADSI:
                     self.__refresh(current_container, dn)
             elif ret == 'items':
                 current_object = UI.QueryWidget('items', 'Value')
-                obj = ObjAttrs(self.conn, self.conn.obj(current_object)[-1]).Show()
+                obj = self.conn.obj(current_object)[-1]
+                old_obj = copy.deepcopy(obj)
+                obj = ObjAttrs(self.conn, obj).Show()
+                obj = {key: obj[key] for key in obj.keys() if obj[key] != None}
+                self.conn.mod_obj(current_object, old_obj, obj)
+                self.__refresh(current_container, current_object)
             elif ret == 'next':
                 break
             elif ret == 'refresh':
