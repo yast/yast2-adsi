@@ -13,6 +13,7 @@ from ldap.filter import filter_format
 from ldap import SCOPE_SUBTREE as SUBTREE
 from samba.credentials import MUST_USE_KERBEROS
 import copy
+from datetime import datetime
 
 def have_x():
     from subprocess import Popen, PIPE
@@ -73,7 +74,7 @@ class ObjAttrs:
         self.conn = conn
         self.obj = obj
         attrs = []
-        for objectClass in self.obj['objectClass'][1:]:
+        for objectClass in self.obj['objectClass']:
             data = self.conn.schema['objectClasses'][objectClass]
             attrs.extend(data['must'])
             attrs.extend(data['may'])
@@ -81,12 +82,27 @@ class ObjAttrs:
             if not attr.decode() in self.obj.keys():
                 self.obj[attr.decode()] = None
 
+    def __timestamp(self, val):
+        return str(datetime.strptime(val.decode(), '%Y%m%d%H%M%S.%fZ'))
+
+    def __display_value(self, key, val):
+        attr_type = self.conn.schema['attributeTypes'][key.encode()]
+        if val == None:
+            return '<not set>'
+        if attr_type['syntax'] == b'1.3.6.1.4.1.1466.115.121.1.24':
+            return self.__timestamp(val[-1])
+        if not attr_type['multi-valued']:
+            return self.obj[key][-1]
+        else:
+            return b'; '.join(self.obj[key])
+        return '<unknown>'
+
     def __new(self):
         items = [
             Item(
                 Id(key),
                 key,
-                '<not set>' if self.obj[key] == None else self.obj[key][-1] if len(self.obj[key]) == 1 else b'; '.join(self.obj[key])
+                self.__display_value(key, self.obj[key])
             )
             for key in sorted(self.obj.keys())
         ]
@@ -348,9 +364,10 @@ class ADSI:
                 obj = self.conn.obj(current_object)[-1]
                 old_obj = copy.deepcopy(obj)
                 obj = ObjAttrs(self.conn, obj).Show()
-                obj = {key: obj[key] for key in obj.keys() if obj[key] != None}
-                self.conn.mod_obj(current_object, old_obj, obj)
-                self.__refresh(current_container, current_object)
+                if obj:
+                    obj = {key: obj[key] for key in obj.keys() if obj[key] != None}
+                    self.conn.mod_obj(current_object, old_obj, obj)
+                    self.__refresh(current_container, current_object)
             elif ret == 'next':
                 break
             elif ret == 'refresh':
