@@ -14,12 +14,23 @@ from ldap import SCOPE_SUBTREE as SUBTREE
 from samba.credentials import MUST_USE_KERBEROS
 import copy
 from datetime import datetime
+import binascii, struct
 
 def have_x():
     from subprocess import Popen, PIPE
     p = Popen(['xset', '-q'], stdout=PIPE, stderr=PIPE)
     return p.wait() == 0
 have_advanced_gui = have_x()
+
+def octet_string_to_hex(data):
+    return binascii.hexlify(data)
+
+def octet_string_to_objectGUID(data):
+    return '%s-%s-%s-%s-%s' % ('%02x' % struct.unpack('<L', data[0:4])[0],
+                               '%02x' % struct.unpack('<H', data[4:6])[0],
+                               '%02x' % struct.unpack('<H', data[6:8])[0],
+                               '%02x' % struct.unpack('>H', data[8:10])[0],
+                               '%02x%02x' % struct.unpack('>HL', data[10:]))
 
 class AttrEdit:
     def __init__(self, conn, attr, val):
@@ -89,13 +100,17 @@ class ObjAttrs:
         attr_type = self.conn.schema['attributeTypes'][key.encode()]
         if val == None:
             return '<not set>'
-        if attr_type['syntax'] == b'1.3.6.1.4.1.1466.115.121.1.24':
-            return self.__timestamp(val[-1])
         if not attr_type['multi-valued']:
+            if attr_type['syntax'] == b'1.3.6.1.4.1.1466.115.121.1.24':
+                return self.__timestamp(val[-1])
+            if attr_type['syntax'] == b'1.3.6.1.4.1.1466.115.121.1.40':
+                if key == 'objectGUID':
+                    return octet_string_to_objectGUID(val[-1])
+                else:
+                    return octet_string_to_hex(val[-1])
             return self.obj[key][-1]
         else:
             return b'; '.join(self.obj[key])
-        return '<unknown>'
 
     def __new(self):
         items = [
