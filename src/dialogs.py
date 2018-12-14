@@ -32,6 +32,19 @@ def octet_string_to_objectGUID(data):
                                '%02x' % struct.unpack('>H', data[8:10])[0],
                                '%02x%02x' % struct.unpack('>HL', data[10:]))
 
+def octet_string_to_objectSid(data):
+    if struct.unpack('B', chr(data[0]).encode())[0] == 1:
+        length = struct.unpack('B', chr(data[1]).encode())[0]-1
+        security_nt_authority = struct.unpack('>xxL', data[2:8])[0]
+        security_nt_non_unique = struct.unpack('<L', data[8:12])[0]
+        ret = 'S-1-%d-%d' % (security_nt_authority, security_nt_non_unique)
+        for i in range(length):
+            pos = 12+(i*4)
+            ret += '-%d' % struct.unpack('<L', data[pos:pos+4])
+        return ret
+    else:
+        return octet_string_to_hex(data)
+
 class AttrEdit:
     def __init__(self, conn, attr, val):
         self.conn = conn
@@ -106,6 +119,8 @@ class ObjAttrs:
             if attr_type['syntax'] == b'1.3.6.1.4.1.1466.115.121.1.40':
                 if key == 'objectGUID':
                     return octet_string_to_objectGUID(val[-1])
+                elif key == 'objectSid':
+                    return octet_string_to_objectSid(val[-1])
                 else:
                     return octet_string_to_hex(val[-1])
             return self.obj[key][-1]
