@@ -89,7 +89,7 @@ class AttrEdit:
                     ret = [ret]
                 break
             elif ret == 'clear':
-                pass # Clear the dialog
+                UI.ChangeWidget(Id('value'), 'Value', '')
         UI.CloseDialog()
         return ret
 
