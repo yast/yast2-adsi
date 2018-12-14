@@ -74,7 +74,7 @@ class AttrEdit:
 
     def Show(self):
         UI.SetApplicationTitle('String Attribute Editor')
-        if not self.attr_type['multi-valued']:
+        if not self.attr_type['multi-valued'] or not self.attr_type['user-modifiable']:
             UI.OpenDialog(self.__dialog())
         else:
             return None
@@ -171,9 +171,9 @@ class ObjAttrs:
                 ret = self.obj
             elif ret == 'attrs':
                 attr = UI.QueryWidget('attrs', 'Value')
-                val = '' if self.obj[attr] == None else self.obj[attr][-1] if len(self.obj[attr]) == 1 else self.obj[attr]
+                val = self.__display_value(attr, self.obj[attr])
                 new_val = AttrEdit(self.conn, attr, val).Show()
-                if self.obj[attr] != new_val:
+                if new_val is not None and self.obj[attr] != new_val:
                     self.obj[attr] = new_val
         UI.CloseDialog()
         return ret
