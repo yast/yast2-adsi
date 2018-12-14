@@ -109,23 +109,32 @@ class ObjAttrs:
     def __timestamp(self, val):
         return str(datetime.strptime(val.decode(), '%Y%m%d%H%M%S.%fZ'))
 
+    def __display_value_each(self, syntax, key, val):
+        if syntax == b'1.3.6.1.4.1.1466.115.121.1.24':
+            return self.__timestamp(val)
+        if syntax == b'1.3.6.1.4.1.1466.115.121.1.40':
+            if key == 'objectGUID':
+                return octet_string_to_objectGUID(val)
+            elif key == 'objectSid':
+                return octet_string_to_objectSid(val)
+            else:
+                return octet_string_to_hex(val)
+        return val
+
     def __display_value(self, key, val):
         attr_type = self.conn.schema['attributeTypes'][key.encode()]
         if val == None:
             return '<not set>'
-        if not attr_type['multi-valued']:
-            if attr_type['syntax'] == b'1.3.6.1.4.1.1466.115.121.1.24':
-                return self.__timestamp(val[-1])
-            if attr_type['syntax'] == b'1.3.6.1.4.1.1466.115.121.1.40':
-                if key == 'objectGUID':
-                    return octet_string_to_objectGUID(val[-1])
-                elif key == 'objectSid':
-                    return octet_string_to_objectSid(val[-1])
-                else:
-                    return octet_string_to_hex(val[-1])
-            return self.obj[key][-1]
         else:
-            return b'; '.join(self.obj[key])
+            if not attr_type['multi-valued']:
+                return self.__display_value_each(attr_type['syntax'], key, val[-1])
+            ret = []
+            for sval in val:
+                nval = self.__display_value_each(attr_type['syntax'], key, sval)
+                if isinstance(nval, six.binary_type):
+                    nval = nval.decode()
+                ret.append(nval)
+            return '; '.join(ret)
 
     def __new(self):
         items = [
