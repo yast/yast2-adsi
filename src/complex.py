@@ -85,21 +85,6 @@ def stringify_ldap(data):
     else:
         return data
 
-# 09/21/2018 03:48:36  09/21/2018 13:48:36  ldap/win-dw0ohw3xqb9.froggy.suse.de@
-def validate_kinit(creds):
-    out, _ = Popen(['klist'], stdout=PIPE, stderr=PIPE).communicate()
-    m = re.findall(six.b('Default principal:\s*(\w+)@([\w\.]+)'), out)
-    if len(m) == 0:
-        return None
-    user, realm = m[0]
-    if not strcasecmp(user, creds.get_username()):
-        return None
-    if Popen(['klist', '-s'], stdout=PIPE, stderr=PIPE).wait() != 0:
-        return None
-    creds.set_kerberos_state(MUST_USE_KERBEROS)
-
-    return creds
-
 class Connection:
     def __init__(self, lp, creds):
         self.lp = lp

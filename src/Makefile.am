@@ -10,7 +10,8 @@ client_DATA =			\
 ynclude_DATA =			\
 	wizards.py		\
 	dialogs.py		\
-	complex.py
+	complex.py		\
+	creds.py
 
 adsi.desktop: adsi.desktop.in
 	sed -e 's;[@]CLIENTDIR[@];$(clientdir);g' < $(srcdir)/adsi.desktop.in > $(srcdir)/adsi.desktop
