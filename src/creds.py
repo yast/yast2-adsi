@@ -65,23 +65,27 @@ class YCreds:
         self.creds.set_kerberos_state(MUST_USE_KERBEROS)
 
     def __recommend_user(self):
+        expired = False
         if Popen(['klist', '-s'], stdout=PIPE, stderr=PIPE).wait() != 0:
-            return None, None
+            expired = True
         out, _ = Popen(['klist'], stdout=PIPE, stderr=PIPE).communicate()
         m = re.findall(six.b('Default principal:\s*(\w+)@([\w\.]+)'), out)
         if len(m) == 0:
-            return None, None
+            return None, None, None
         user, realm = m[0]
-        return user, realm
+        return user, realm, expired
 
     def __password_prompt(self, user):
-        krb_user, krb_realm = self.__recommend_user()
-        if krb_user:
+        krb_user, krb_realm, krb_expired = self.__recommend_user()
+        if krb_user and not krb_expired:
             krb_selection = VBox(
                 VSpacing(.5),
                 Left(PushButton(Id('krb_select'), Opt('hstretch', 'vstretch'), krb_user)),
                 Left(Label(b'Realm: %s' % krb_realm))
             )
+        elif krb_user and krb_expired:
+            user = krb_user
+            krb_selection = Empty()
         else:
             krb_selection = Empty()
         return MinWidth(30, HBox(HSpacing(1), VBox(
