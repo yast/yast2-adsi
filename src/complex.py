@@ -14,6 +14,7 @@ from ldap.modlist import modifyModlist as modlist
 import traceback
 from yast import ycpbuiltins
 from samba.credentials import Credentials, MUST_USE_KERBEROS
+from creds import kinit_for_gssapi
 
 import six
 
@@ -42,14 +43,6 @@ def strcmp(first, second):
         if isinstance(second, six.string_types):
             second = six.binary_type(second, 'utf8')
     return first == second
-
-def strcasecmp(first, second):
-    if six.PY3:
-        if isinstance(first, six.string_types):
-            first = six.binary_type(first, 'utf8')
-        if isinstance(second, six.string_types):
-            second = six.binary_type(second, 'utf8')
-    return first.lower() == second.lower()
 
 class LdapException(Exception):
     def __init__(self, *args, **kwargs):
@@ -94,12 +87,6 @@ class Connection:
         self.__ldap_connect()
         self.schema = {}
         self.__load_schema()
-
-    def __kinit_for_gssapi(self):
-        p = Popen(['kinit', '%s@%s' % (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username()], stdin=PIPE, stdout=PIPE)
-        p.stdin.write(('%s\n' % self.creds.get_password()).encode())
-        p.stdin.flush()
-        return p.wait() == 0
 
     def realm_to_dn(self, realm):
         return ','.join(['DC=%s' % part for part in realm.lower().split('.')])
@@ -240,7 +227,7 @@ class Connection:
         self.net = Net(creds=self.creds, lp=self.lp)
         cldap_ret = self.net.finddc(domain=self.realm, flags=(nbt.NBT_SERVER_LDAP | nbt.NBT_SERVER_DS))
         self.l = ldap.initialize('ldap://%s' % cldap_ret.pdc_dns_name)
-        if self.creds.get_kerberos_state() == MUST_USE_KERBEROS or self.__kinit_for_gssapi():
+        if self.creds.get_kerberos_state() == MUST_USE_KERBEROS or kinit_for_gssapi(self.creds, self.realm):
             auth_tokens = ldap.sasl.gssapi('')
             self.l.sasl_interactive_bind_s('', auth_tokens)
         else:
