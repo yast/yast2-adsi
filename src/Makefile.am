@@ -11,7 +11,9 @@ ynclude_DATA =			\
 	wizards.py		\
 	dialogs.py		\
 	complex.py		\
-	creds.py
+	creds.py		\
+	strings.py		\
+	yldap.py
 
 adsi.desktop: adsi.desktop.in
 	sed -e 's;[@]CLIENTDIR[@];$(clientdir);g' < $(srcdir)/adsi.desktop.in > $(srcdir)/adsi.desktop

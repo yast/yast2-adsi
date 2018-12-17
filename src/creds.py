@@ -4,14 +4,7 @@ from yast import *
 from subprocess import Popen, PIPE
 from samba.credentials import Credentials, MUST_USE_KERBEROS
 import re, six
-
-def strcasecmp(first, second):
-    if six.PY3:
-        if isinstance(first, six.string_types):
-            first = six.binary_type(first, 'utf8')
-        if isinstance(second, six.string_types):
-            second = six.binary_type(second, 'utf8')
-    return first.lower() == second.lower()
+from strings import strcasecmp
 
 def kinit_for_gssapi(creds, realm):
     p = Popen(['kinit', '%s@%s' % (creds.get_username(), realm) if not realm in creds.get_username() else creds.get_username()], stdin=PIPE, stdout=PIPE)

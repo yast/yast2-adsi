@@ -2,7 +2,8 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 import copy
-from complex import Connection, strcmp
+from complex import Connection
+from strings import strcmp
 from random import randint
 from yast import import_module
 import_module('Wizard')
