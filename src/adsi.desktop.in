@@ -18,6 +18,6 @@ X-SuSE-YaST-AutoInstResource=adsi
 Icon=yast-adsi
 Exec=/usr/bin/xdg-su -c 'yast2 adsi qt'
 
-Name=ADSI Edit for YaST
+Name=ADSI Edit
 GenericName=Manage LDAP
 StartupNotify=true
