@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from __future__ import absolute_import, division, print_function, unicode_literals
 from dialogs import ADSI
 from yast import import_module

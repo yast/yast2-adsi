@@ -16,7 +16,7 @@
 #
 
 
-Name:           yast-adsi
+Name:           yast2-adsi
 Version:        1.0
 Release:        0
 Summary:        ADSI Edit for YaST
@@ -65,7 +65,6 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %{_datadir}/YaST2/include/adsi/complex.py
 %{_datadir}/YaST2/include/adsi/dialogs.py
 %{_datadir}/YaST2/include/adsi/wizards.py
-%{_datadir}/YaST2/include/adsi/defaults.py
 %{_datadir}/YaST2/include/adsi/yldap.py
 %{_datadir}/YaST2/include/adsi/strings.py
 %{_datadir}/YaST2/include/adsi/creds.py
