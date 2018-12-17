@@ -331,6 +331,9 @@ class ADSI:
                 ret = event['ID']
             else:
                 raise Exception('ID not found in response %s' % str(event))
+            if str(ret) == 'abort' or (str(ret) == 'cancel' and not menu_open):
+                break
+            menu_open = False
             if ret == 'adsi_tree':
                 choice = UI.QueryWidget('adsi_tree', 'Value')
                 if 'DC=' in choice:
@@ -351,20 +354,23 @@ class ADSI:
                         UI.ReplaceWidget('new_but',  MenuButton(Id('new'), Opt('disabled'), "New", []))
                         UI.ChangeWidget(Id('delete'), "Enabled", False)
                         UI.ChangeWidget(Id('refresh'), 'Enabled', False)
+                if event['EventReason'] == 'ContextMenuActivated':
+                    if current_container:
+                        menu_open = True
+                        UI.OpenContextMenu(self.__objs_context_menu())
             elif ret == 'context_add_object':
                 obj = NewObjDialog(self.conn, current_container).Show()
                 if obj:
                     dn = self.conn.add_obj(current_container, obj)
                     self.__refresh(current_container, dn)
             elif ret == 'items':
-                current_object = UI.QueryWidget('items', 'Value')
-                obj = self.conn.obj(current_object)[-1]
-                old_obj = copy.deepcopy(obj)
-                obj = ObjAttrs(self.conn, obj).Show()
-                if obj:
-                    obj = {key: obj[key] for key in obj.keys() if obj[key] != None}
-                    self.conn.mod_obj(current_object, old_obj, obj)
-                    self.__refresh(current_container, current_object)
+                if event['EventReason'] == 'ContextMenuActivated':
+                    check = UI.QueryWidget('items', 'CurrentItem')
+                    UI.OpenContextMenu(self.__objs_context_menu())
+                else:
+                    self.__obj_properties(current_container)
+            elif ret == 'properties':
+                self.__obj_properties(current_container)
             elif ret == 'next':
                 break
             elif ret == 'refresh':
@@ -374,6 +380,26 @@ class ADSI:
                 self.__refresh(current_container)
             UI.SetApplicationTitle('ADSI Edit')
         return ret
+
+    def __obj_properties(self, current_container):
+        current_object = UI.QueryWidget('items', 'Value')
+        obj = self.conn.obj(current_object)[-1]
+        old_obj = copy.deepcopy(obj)
+        obj = ObjAttrs(self.conn, obj).Show()
+        if obj:
+            obj = {key: obj[key] for key in obj.keys() if obj[key] != None}
+            self.conn.mod_obj(current_object, old_obj, obj)
+            self.__refresh(current_container, current_object)
+
+    def __objs_context_menu(self):
+        return Term('menu', [
+            Term('menu', 'New', [
+                    Item(Id('context_add_object'), 'Object...'),
+                ]),
+            Item(Id('delete'), 'Delete'),
+            Item(Id('refresh'), 'Refresh'),
+            Item(Id('properties'), 'Properties'),
+            ])
 
     def __warn_delete(self, name):
         if six.PY3 and type(name) is bytes:
