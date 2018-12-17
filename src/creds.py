@@ -65,6 +65,8 @@ class YCreds:
         self.creds.set_kerberos_state(MUST_USE_KERBEROS)
 
     def __recommend_user(self):
+        if Popen(['klist', '-s'], stdout=PIPE, stderr=PIPE).wait() != 0:
+            return None, None
         out, _ = Popen(['klist'], stdout=PIPE, stderr=PIPE).communicate()
         m = re.findall(six.b('Default principal:\s*(\w+)@([\w\.]+)'), out)
         if len(m) == 0:
