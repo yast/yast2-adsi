@@ -105,8 +105,11 @@ class Connection(Ldap):
         ret = self.ldap_search(container, SCOPE_ONELEVEL, search, ['name', 'objectClass'])
         results = []
         for e in ret:
-            if len(self.schema['objectClasses'][e[1]['objectClass'][-1]]['inferior']) > 0:
-                results.append((e[0], e[1]['name'][-1]))
+            try:
+                if len(self.schema['objectClasses'][e[1]['objectClass'][-1]]['inferior']) > 0:
+                    results.append((e[0], e[1]['name'][-1]))
+            except KeyError:
+                pass
         return results
 
     def objs(self, container=None):
