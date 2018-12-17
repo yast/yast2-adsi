@@ -78,11 +78,11 @@ class YCreds:
     def __password_prompt(self, user):
         krb_user, krb_realm, krb_expired = self.__recommend_user()
         if krb_user and not krb_expired:
-            krb_selection = VBox(
+            krb_selection = Frame('', VBox(
                 VSpacing(.5),
                 Left(PushButton(Id('krb_select'), Opt('hstretch', 'vstretch'), krb_user)),
                 Left(Label(b'Realm: %s' % krb_realm))
-            )
+            ))
         elif krb_user and krb_expired:
             user = krb_user
             krb_selection = Empty()
@@ -91,11 +91,11 @@ class YCreds:
         return MinWidth(30, HBox(HSpacing(1), VBox(
             VSpacing(.5),
             Left(Label('To continue, type an administrator password')),
+            Frame('', VBox(
+                Left(TextEntry(Id('username_prompt'), Opt('hstretch', 'notify'), 'Username', user)),
+                Left(Password(Id('password_prompt'), Opt('hstretch'), 'Password')),
+            )),
             krb_selection,
-            VSpacing(.5),
-            Left(TextEntry(Id('username_prompt'), Opt('hstretch', 'notify'), 'Username', user)),
-            Left(Password(Id('password_prompt'), Opt('hstretch'), 'Password')),
-            VSpacing(.5),
             Right(HBox(
                 PushButton(Id('creds_ok'), 'OK'),
                 PushButton(Id('creds_cancel'), 'Cancel'),
