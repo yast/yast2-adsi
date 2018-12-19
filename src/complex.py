@@ -6,9 +6,7 @@ from subprocess import Popen, PIPE
 from syslog import syslog, LOG_INFO, LOG_ERR, LOG_DEBUG, LOG_EMERG, LOG_ALERT
 import traceback
 from yast import ycpbuiltins
-from samba.credentials import Credentials, MUST_USE_KERBEROS
-from creds import kinit_for_gssapi
-from yldap import Ldap, LdapException, stringify_ldap, SCOPE_SUBTREE, SCOPE_ONELEVEL, SCOPE_BASE, addlist, modlist
+from adcommon.yldap import Ldap, LdapException, stringify_ldap, SCOPE_SUBTREE, SCOPE_ONELEVEL, SCOPE_BASE, addlist, modlist
 
 import six
 

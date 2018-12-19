@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import copy
 from complex import Connection
-from strings import strcmp
+from adcommon.strings import strcmp
 from random import randint
 from yast import import_module
 import_module('Wizard')
@@ -9,12 +9,11 @@ import_module('UI')
 from yast import *
 import six
 from ldap.filter import filter_format
-from ldap import SCOPE_SUBTREE as SUBTREE
-from samba.credentials import MUST_USE_KERBEROS
 import copy
 from datetime import datetime
 import binascii, struct
-from creds import YCreds
+from adcommon.yldap import SCOPE_SUBTREE as SUBTREE
+from adcommon.creds import YCreds, MUST_USE_KERBEROS
 
 def have_x():
     from subprocess import Popen, PIPE
