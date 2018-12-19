@@ -63,12 +63,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %defattr(-,root,root)
 %dir %{_datadir}/YaST2/include/adsi
 %{_datadir}/YaST2/clients/adsi.py
-%{_datadir}/YaST2/include/adsi/complex.py
-%{_datadir}/YaST2/include/adsi/dialogs.py
-%{_datadir}/YaST2/include/adsi/wizards.py
-%{_datadir}/YaST2/include/adsi/yldap.py
-%{_datadir}/YaST2/include/adsi/strings.py
-%{_datadir}/YaST2/include/adsi/creds.py
+%{_datadir}/YaST2/include/adsi/*
 %{_datadir}/applications/YaST2/adsi.desktop
 %dir %{_datadir}/doc/yast2-adsi
 %{_datadir}/doc/yast2-adsi/COPYING
