@@ -111,3 +111,9 @@ missing
 src/adsi.desktop
 Makefile
 config.status
+/Makefile.am
+/Makefile.am.common
+*.ami
+config.guess
+config.sub
+configure.ac
