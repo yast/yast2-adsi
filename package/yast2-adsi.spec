@@ -22,7 +22,7 @@ Release:        0
 Summary:        ADSI Edit for YaST
 License:        GPL-3.0
 Group:          Productivity/Networking/Samba
-Url:            http://www.github.com/dmulder/yast-adsi
+Url:            http://www.github.com/yast-samba/yast-adsi
 Source:         %{name}-%{version}.tar.bz2
 BuildArch:      noarch
 Requires:       krb5-client
@@ -49,23 +49,18 @@ an LDAP tree.
 %setup -q
 
 %build
-autoreconf -if
-%configure --prefix=%{_prefix}
-make
+%yast_build
 
 %install
-make DESTDIR=$RPM_BUILD_ROOT install
-
-%clean
-%{__rm} -rf $RPM_BUILD_ROOT
+%yast_install
 
 %files
 %defattr(-,root,root)
-%dir %{_datadir}/YaST2/include/adsi
-%{_datadir}/YaST2/clients/adsi.py
-%{_datadir}/YaST2/include/adsi/*
-%{_datadir}/applications/YaST2/adsi.desktop
-%dir %{_datadir}/doc/yast2-adsi
-%{_datadir}/doc/yast2-adsi/COPYING
+%dir %{yast_yncludedir}/adsi
+%{yast_clientdir}/*.py
+%{yast_yncludedir}/adsi/*
+%{yast_desktopdir}/adsi.desktop
+%doc %{yast_docdir}
+%license COPYING
 
 %changelog
