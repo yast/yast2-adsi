@@ -14,6 +14,7 @@ from datetime import datetime
 import binascii, struct
 from adcommon.yldap import SCOPE_SUBTREE as SUBTREE
 from adcommon.creds import YCreds, MUST_USE_KERBEROS
+from adcommon.ui import CreateMenu, DeleteButtonBox
 
 def have_x():
     from subprocess import Popen, PIPE
@@ -295,6 +296,7 @@ class ADSI:
         self.realm = lp.get('realm')
         self.lp = lp
         self.creds = creds
+        self.__setup_menus()
         ycred = YCreds(creds)
         self.got_creds = ycred.get_creds()
         while self.got_creds:
@@ -305,6 +307,18 @@ class ADSI:
                 ycpbuiltins.y2error(str(e))
                 self.got_creds = ycred.get_creds()
 
+    def __setup_menus(self, obj=False):
+        menus = [{'title': '&File', 'id': 'file', 'type': 'Menu'},
+                 {'title': 'Exit', 'id': 'abort', 'type': 'MenuEntry', 'parent': 'file'}]
+        if obj:
+            menus.append({'title': 'Action', 'id': 'action', 'type': 'Menu'})
+            menus.append({'title': 'New', 'id': 'new_but', 'type': 'SubMenu', 'parent': 'action'})
+            menus.append({'title': 'Object...', 'id': 'context_add_object', 'type': 'MenuEntry', 'parent': 'new_but'})
+            menus.append({'title': 'Delete', 'id': 'delete', 'type': 'MenuEntry', 'parent': 'action'})
+            menus.append({'title': 'Refresh', 'id': 'refresh', 'type': 'MenuEntry', 'parent': 'action'})
+            menus.append({'title': 'Properties', 'id': 'properties', 'type': 'MenuEntry', 'parent': 'action'})
+        CreateMenu(menus)
+
     def __delete_selected_obj(self, current_object):
         if self.__warn_delete(current_object):
             self.conn.ldap_delete(current_object)
@@ -314,9 +328,7 @@ class ADSI:
             return Symbol('abort')
         UI.SetApplicationTitle('ADSI Edit')
         Wizard.SetContentsButtons('', self.__adsi_page(), '', 'Back', 'Close')
-
-        Wizard.HideBackButton()
-        Wizard.HideAbortButton()
+        DeleteButtonBox()
         UI.SetFocus('adsi_tree')
         current_container = None
         current_object = None
@@ -337,20 +349,12 @@ class ADSI:
                     current_container = choice
                     current_object = choice
                     self.__load_right_pane(current_container)
-                    if not have_advanced_gui:
-                        UI.ReplaceWidget('new_but',  MenuButton(Id('new'), "New", [
-                            Item(Id('context_add_object'), 'Object...')
-                        ]))
-                        UI.ChangeWidget(Id('delete'), "Enabled", True)
-                        UI.ChangeWidget(Id('refresh'), 'Enabled', True)
+                    self.__setup_menus(obj=True)
                 else:
                     current_container = None
                     current_object = None
                     UI.ReplaceWidget('rightPane', Empty())
-                    if not have_advanced_gui:
-                        UI.ReplaceWidget('new_but',  MenuButton(Id('new'), Opt('disabled'), "New", []))
-                        UI.ChangeWidget(Id('delete'), "Enabled", False)
-                        UI.ChangeWidget(Id('refresh'), 'Enabled', False)
+                    self.__setup_menus()
                 if event['EventReason'] == 'ContextMenuActivated':
                     if current_container:
                         menu_open = True
@@ -362,8 +366,11 @@ class ADSI:
                     self.__refresh(current_container, dn)
             elif ret == 'items':
                 if event['EventReason'] == 'ContextMenuActivated':
-                    check = UI.QueryWidget('items', 'CurrentItem')
+                    current_object = UI.QueryWidget('items', 'Value')
                     UI.OpenContextMenu(self.__objs_context_menu())
+                elif event['EventReason'] == 'SelectionChanged':
+                    current_object = UI.QueryWidget('items', 'Value')
+                    self.__setup_menus(obj=True)
                 else:
                     self.__obj_properties(current_container)
             elif ret == 'properties':
@@ -437,7 +444,7 @@ class ADSI:
     def __objects_tab(self, container):
         header = Header('Name', 'Class', 'Distinguished Name')
         items = [Item(Id(obj[2]), obj[0], obj[1], obj[2]) for obj in self.conn.objs(container)]
-        return Table(Id('items'), Opt('notify', 'notifyContextMenu'), header, items)
+        return Table(Id('items'), Opt('notify', 'immediate', 'notifyContextMenu'), header, items)
 
     def __fetch_children(self, parent, expand):
         return [Item(Id(e[0]), e[0].split(',')[0], e[0].lower() in expand.lower(), self.__fetch_children(e[0], expand)) for e in self.conn.containers(parent)]
@@ -454,21 +461,9 @@ class ADSI:
         )
 
     def __adsi_page(self):
-        if not have_advanced_gui:
-            menu = HBox(
-                ReplacePoint(Id('new_but'),
-                    MenuButton(Id('new'), Opt('disabled'), "New", [])
-                ),
-                PushButton(Id('delete'), Opt('disabled'), "Delete"),
-                PushButton(Id('refresh'), Opt('disabled'), 'Refresh')
-            )
-        else:
-            menu = Empty()
-
         return HBox(
             HWeight(1, VBox(
                 ReplacePoint(Id('ldap_tree'), self.__ldap_tree()),
-                menu
             )),
             HWeight(2, ReplacePoint(Id('rightPane'), Empty()))
         )
