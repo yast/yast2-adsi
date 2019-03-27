@@ -115,6 +115,7 @@ class ObjAttrs:
         attrs.extend(rules['may'])
         for aux_class in rules['aux']:
             attrs.extend(self.__extend_attrs(aux_class))
+        attrs = [a for a in attrs if not a in self.conn.schema['constructedAttributes']]
         return attrs
 
     def __timestamp(self, val):
