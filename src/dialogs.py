@@ -186,6 +186,7 @@ class ObjAttrs:
                 new_val = AttrEdit(self.conn, attr, val).Show()
                 if new_val is not None and self.obj[attr] != new_val:
                     self.obj[attr] = new_val
+                UI.SetApplicationTitle(b'CN=%s Properties' % self.obj['cn'][-1])
         UI.CloseDialog()
         return ret
 
