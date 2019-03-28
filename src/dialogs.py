@@ -99,12 +99,24 @@ class ObjAttrs:
         self.obj = obj
         attrs = []
         for objectClass in self.obj['objectClass']:
-            data = self.conn.schema['objectClasses'][objectClass]
-            attrs.extend(data['must'])
-            attrs.extend(data['may'])
+            attrs.extend(self.__extend_attrs(objectClass))
+        attrs = list(set(attrs))
         for attr in attrs:
             if not attr.decode() in self.obj.keys():
                 self.obj[attr.decode()] = None
+
+    def __extend_attrs(self, objectClass):
+        attrs = []
+        data = self.conn.schema['objectClasses'][objectClass]
+        attrs.extend(data['must'])
+        attrs.extend(data['may'])
+        rules = self.conn.schema['dITContentRules'][objectClass]
+        attrs.extend(rules['must'])
+        attrs.extend(rules['may'])
+        for aux_class in rules['aux']:
+            attrs.extend(self.__extend_attrs(aux_class))
+        attrs = [a for a in attrs if not a in self.conn.schema['constructedAttributes']]
+        return attrs
 
     def __timestamp(self, val):
         return str(datetime.strptime(val.decode(), '%Y%m%d%H%M%S.%fZ'))
@@ -143,7 +155,7 @@ class ObjAttrs:
                 key,
                 self.__display_value(key, self.obj[key])
             )
-            for key in sorted(self.obj.keys())
+            for key in sorted(self.obj.keys(), key=str.lower)
         ]
         return MinSize(70, 40, HBox(HSpacing(3), VBox(
             VSpacing(1),
@@ -175,6 +187,7 @@ class ObjAttrs:
                 new_val = AttrEdit(self.conn, attr, val).Show()
                 if new_val is not None and self.obj[attr] != new_val:
                     self.obj[attr] = new_val
+                UI.SetApplicationTitle(b'CN=%s Properties' % self.obj['cn'][-1])
         UI.CloseDialog()
         return ret
 

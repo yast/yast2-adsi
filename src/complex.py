@@ -43,6 +43,7 @@ class Connection(Ldap):
         results = self.l.read_subschemasubentry_s(dn)
 
         self.schema['attributeTypes'] = {}
+        self.schema['constructedAttributes'] = self.__constructed_attributes()
         for attributeType in results['attributeTypes']:
             m = re.match(b'\(\s+(?P<id>[0-9\.]+)\s+NAME\s+\'(?P<name>[\-\w]+)\'\s+(SYNTAX\s+\'(?P<syntax>[0-9\.]+)\'\s+)?(?P<info>.*)\)', attributeType)
             if m:
@@ -89,6 +90,13 @@ class Connection(Ldap):
                 self.schema['dITContentRules'][name]['not'] = m.group('not').strip().split(b' $ ') if m.group('not') else []
             else:
                 raise ldap.LDAPError('Failed to parse dITContentRule: %s' % dITContentRule.decode())
+
+    def __constructed_attributes(self):
+        # ADSI Hides constructed attributes, since they can't be modified.
+        search = '(&(systemFlags:1.2.840.113556.1.4.803:=4)(ObjectClass=attributeSchema))'
+        container = 'CN=Schema,CN=Configuration,%s' % self.realm_dn
+        ret = self.ldap_search(container, SCOPE_ONELEVEL, search, ['lDAPDisplayName'])
+        return [a[-1]['lDAPDisplayName'][-1] for a in ret]
 
     def container_inferiors(self, container):
         objectClass = self.obj(container, ['objectClass'])[-1]['objectClass'][-1]
