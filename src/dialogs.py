@@ -15,6 +15,9 @@ import binascii, struct
 from adcommon.yldap import SCOPE_SUBTREE as SUBTREE
 from adcommon.creds import YCreds, MUST_USE_KERBEROS
 from adcommon.ui import CreateMenu, DeleteButtonBox
+from samba.net import Net
+from samba.dcerpc import nbt
+from samba.credentials import Credentials
 
 def have_x():
     from subprocess import Popen, PIPE
@@ -304,21 +307,118 @@ class NewObjDialog:
         UI.CloseDialog()
         return ret
 
+class ConnectionSettings:
+    def __init__(self, creds, lp):
+        self.creds = creds
+        self.lp = lp
+        self.conn = None
+        self.server = None
+        realm = self.lp.get('realm')
+        if realm:
+            self.server = self.__fetch_server(realm)
+
+    def __fetch_server(self, realm):
+        net = Net(Credentials())
+        cldap_ret = net.finddc(domain=realm, flags=(nbt.NBT_SERVER_LDAP | nbt.NBT_SERVER_DS))
+        return cldap_ret.pdc_dns_name if cldap_ret else None
+
+    def __fetch_domain(self):
+        net = Net(Credentials())
+        cldap_ret = net.finddc(address=self.server, flags=(nbt.NBT_SERVER_LDAP | nbt.NBT_SERVER_DS))
+        return cldap_ret.dns_domain if cldap_ret else None
+
+    def __new(self):
+        self.contexts = ['Default naming context', 'Configuration', 'RootDSE', 'Schema']
+        context = self.contexts[0]
+        if self.server:
+            path = 'ldap://%s/%s' % (self.server, context)
+        else:
+            path = ''
+        return MinSize(56, 22, HBox(HSpacing(3), VBox(
+                VSpacing(1),
+                HBox(
+                    HWeight(1, Left(Label('Name:'))),
+                    HWeight(6, InputField(Id('context'), Opt('hstretch'), '', context)),
+                ),
+                HBox(
+                    HWeight(1, Left(Label('Path:'))),
+                    HWeight(6, InputField(Id('path'), Opt('hstretch', 'disabled'), '', path)),
+                ),
+                Frame('Connection Point', VBox(
+                    RadioButtonGroup(VBox(
+                        Left(RadioButton(Id('select_dn'), Opt('hstretch', 'editable'), 'Select or type a Distinguished Name or Naming Context:', False)),
+                        Left(ComboBox(Id('context_type'), Opt('hstretch', 'editable', 'notify', 'immediate'), '', [])),
+                        Left(RadioButton(Id('select_nc'), Opt('hstretch'), 'Select a well known Naming Context:', True)),
+                        Left(ComboBox(Id('context_combo'), Opt('hstretch', 'notify'), '', [Item(c) for c in self.contexts])),
+                    )),
+                )),
+                Frame('Computer', VBox(
+                    RadioButtonGroup(VBox(
+                        Left(RadioButton(Id('server_select'), Opt('hstretch'), 'Select or type a domain or server: (Server | Domain [:port])', False)),
+                        Left(ComboBox(Id('server'), Opt('hstretch', 'editable', 'notify', 'immediate'), '', [])),
+                        Left(RadioButton(Opt('hstretch'), 'Default (Domain or server that you logged in to)', True)),
+                    )),
+                    Left(CheckBox(Opt('hstretch', 'disabled'), 'Use SSL-based Encryption', True)),
+                )),
+                Bottom(Right(HBox(
+                    PushButton(Id('ok'), 'OK'),
+                    PushButton(Id('cancel'), 'Cancel'),
+                ))),
+                VSpacing(1),
+            ), HSpacing(3)))
+
+    def Show(self):
+        UI.SetApplicationTitle('Connection Settings')
+        UI.OpenDialog(self.__new())
+        while True:
+            ret = UI.UserInput()
+            if str(ret) == 'abort' or str(ret) == 'cancel':
+                break
+            elif ret == 'context_combo':
+                UI.ChangeWidget('select_nc', 'Value', True)
+                context = UI.QueryWidget('context_combo', 'Value')
+                UI.ChangeWidget('context', 'Value', context)
+                path = 'ldap://%s/%s' % (self.server, context) if self.server else None
+                if path:
+                    UI.ChangeWidget('path', 'Value', path)
+            elif ret == 'context_type':
+                UI.ChangeWidget('select_dn', 'Value', True)
+                context = UI.QueryWidget('context_type', 'Value')
+                UI.ChangeWidget('context', 'Value', context)
+                path = 'ldap://%s/%s' % (self.server, context) if self.server else None
+                if path:
+                    UI.ChangeWidget('path', 'Value', path)
+            elif ret == 'server':
+                UI.ChangeWidget('server_select', 'Value', True)
+                self.server = UI.QueryWidget('server', 'Value')
+                context = UI.QueryWidget('context_combo', 'Value')
+                UI.ChangeWidget('path', 'Value', 'ldap://%s/%s' % (self.server, context))
+            elif ret == 'ok':
+                realm = self.__fetch_domain().upper()
+                if realm:
+                    self.lp.set('realm', realm)
+                path = UI.QueryWidget('path', 'Value')
+                ycred = YCreds(self.creds)
+                def cred_valid():
+                    try:
+                        self.conn = Connection(self.lp, self.creds, path)
+                        return True
+                    except Exception as e:
+                        ycpbuiltins.y2error(str(e))
+                    return False
+                ycred.Show(cred_valid)
+                if self.conn:
+                    break
+        UI.CloseDialog()
+        return self.conn
+
 class ADSI:
     def __init__(self, lp, creds):
         self.realm = lp.get('realm')
         self.lp = lp
         self.creds = creds
         self.__setup_menus()
-        ycred = YCreds(creds)
-        self.got_creds = ycred.get_creds()
-        while self.got_creds:
-            try:
-                self.conn = Connection(lp, creds)
-                break
-            except Exception as e:
-                ycpbuiltins.y2error(str(e))
-                self.got_creds = ycred.get_creds()
+        self.conn = None
 
     def __setup_menus(self, obj=False):
         menus = [{'title': '&File', 'id': 'file', 'type': 'Menu'},
@@ -330,6 +430,9 @@ class ADSI:
             menus.append({'title': 'Delete', 'id': 'delete', 'type': 'MenuEntry', 'parent': 'action'})
             menus.append({'title': 'Refresh', 'id': 'refresh', 'type': 'MenuEntry', 'parent': 'action'})
             menus.append({'title': 'Properties', 'id': 'properties', 'type': 'MenuEntry', 'parent': 'action'})
+        else:
+            menus.append({'title': 'Action', 'id': 'action', 'type': 'Menu'})
+            menus.append({'title': 'Connect to...', 'id': 'connect', 'type': 'MenuEntry', 'parent': 'action'})
         CreateMenu(menus)
 
     def __delete_selected_obj(self, current_object):
@@ -337,8 +440,6 @@ class ADSI:
             self.conn.ldap_delete(current_object)
 
     def Show(self):
-        if not self.got_creds:
-            return Symbol('abort')
         UI.SetApplicationTitle('ADSI Edit')
         Wizard.SetContentsButtons('', self.__adsi_page(), '', 'Back', 'Close')
         DeleteButtonBox()
@@ -395,6 +496,10 @@ class ADSI:
             elif str(ret) == 'delete':
                 self.__delete_selected_obj(current_object)
                 self.__refresh(current_container)
+            elif ret == 'connect':
+                self.conn = ConnectionSettings(self.creds, self.lp).Show()
+                if self.conn:
+                    UI.ReplaceWidget('ldap_tree', self.__ldap_tree())
             UI.SetApplicationTitle('ADSI Edit')
         return ret
 
@@ -463,15 +568,17 @@ class ADSI:
         return [Item(Id(e[0]), e[0].split(',')[0], e[0].lower() in expand.lower(), self.__fetch_children(e[0], expand)) for e in self.conn.containers(parent)]
 
     def __ldap_tree(self, expand=''):
-        top = self.conn.realm_to_dn(self.conn.realm)
-        items = self.__fetch_children(top, expand)
+        if self.conn:
+            top = self.conn.realm_to_dn(self.conn.realm)
+            context = 'Default naming context' # TODO fetch this
+            items = self.__fetch_children(top, expand)
+            tree = [Item(context, True, [Item(Id(top), top, True, items)])]
+        else:
+            tree = []
 
-        return Tree(Id('adsi_tree'), Opt('notify', 'immediate', 'notifyContextMenu'), 'ADSI Edit', [
-                Item('Default naming context', True, [
-                    Item(Id(top), top, True, items)
-                ])
-            ]
-        )
+        return Tree(Id('adsi_tree'), Opt('notify', 'immediate', 'notifyContextMenu'), '', [
+            Item(Id('adsi_edit'), 'ADSI Edit', True, tree)
+        ])
 
     def __adsi_page(self):
         return HBox(

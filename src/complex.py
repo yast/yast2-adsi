@@ -11,8 +11,8 @@ from adcommon.yldap import Ldap, LdapException, stringify_ldap, SCOPE_SUBTREE, S
 import six
 
 class Connection(Ldap):
-    def __init__(self, lp, creds):
-        super().__init__(lp, creds)
+    def __init__(self, lp, creds, ldap_url):
+        super().__init__(lp, creds, ldap_url=ldap_url)
         self.realm_dn = self.realm_to_dn(self.realm)
         self.schema = {}
         self.__load_schema()

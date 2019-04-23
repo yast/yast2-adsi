@@ -34,10 +34,13 @@ if __name__ == "__main__":
 
     # Set the loadparm context
     lp = LoadParm()
-    if os.getenv("SMB_CONF_PATH") is not None:
-        lp.load(os.getenv("SMB_CONF_PATH"))
-    else:
-        lp.load_default()
+    try:
+        if os.getenv("SMB_CONF_PATH") is not None:
+            lp.load(os.getenv("SMB_CONF_PATH"))
+        else:
+            lp.load_default()
+    except RuntimeError:
+        pass
 
     # Initialize the session
     creds = Credentials()
