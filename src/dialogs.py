@@ -569,8 +569,8 @@ class ADSI:
 
     def __ldap_tree(self, expand=''):
         if self.conn:
-            top = self.conn.realm_to_dn(self.conn.realm)
-            context = 'Default naming context' # TODO fetch this
+            top = self.conn.naming_context
+            context = '%s [%s]' % (self.conn.naming_context_name, self.conn.dc_hostname)
             items = self.__fetch_children(top, expand)
             tree = [Item(context, True, [Item(Id(top), top, True, items)])]
         else:
