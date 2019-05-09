@@ -368,9 +368,9 @@ class ConnectionSettings:
                 )),
                 Frame('Computer', VBox(
                     RadioButtonGroup(VBox(
-                        Left(RadioButton(Id('server_select'), Opt('hstretch'), 'Select or type a domain or server: (Server | Domain [:port])', False)),
+                        Left(RadioButton(Id('server_select'), Opt('hstretch'), 'Select or type a domain or server: (Server | Domain [:port])', self.server is None)),
                         Left(ComboBox(Id('server'), Opt('hstretch', 'editable', 'notify', 'immediate'), '', [])),
-                        Left(RadioButton(Opt('hstretch'), 'Default (Domain or server that you logged in to)', True)),
+                        Left(RadioButton(Opt('hstretch', 'disabled' if self.server is None else ''), 'Default (Domain or server that you logged in to)', self.server is not None)),
                     )),
                     Left(CheckBox(Opt('hstretch', 'disabled'), 'Use SSL-based Encryption', True)),
                 )),
