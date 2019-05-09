@@ -11,14 +11,35 @@ from adcommon.yldap import Ldap, LdapException, stringify_ldap, SCOPE_SUBTREE, S
 import six
 
 class Connection(Ldap):
-    def __init__(self, lp, creds):
-        super().__init__(lp, creds)
+    def __init__(self, lp, creds, ldap_url):
+        super().__init__(lp, creds, ldap_url=ldap_url)
         self.realm_dn = self.realm_to_dn(self.realm)
+        self.naming_contexts = self.__naming_contexts()
+        self.rootdse = False
+        if self.ldap_url.dn == 'Default naming context':
+            naming_context = 'defaultNamingContext'
+        elif self.ldap_url.dn == 'Configuration':
+            naming_context = 'configurationNamingContext'
+        elif self.ldap_url.dn == 'Schema':
+            naming_context = 'schemaNamingContext'
+        elif self.ldap_url.dn == 'RootDSE':
+            self.rootdse = True
+        else:
+            naming_context = self.ldap_url.dn
+        if not self.rootdse:
+            self.naming_context_name = self.ldap_url.dn
+            self.naming_context = self.naming_contexts[naming_context][-1].decode() if naming_context in self.naming_contexts else naming_context
         self.schema = {}
         self.__load_schema()
 
     def realm_to_dn(self, realm):
         return ','.join(['DC=%s' % part for part in realm.lower().split('.')])
+
+    def __naming_contexts(self):
+        attrs = ['configurationNamingContext', 'defaultNamingContext', 'namingContexts', 'rootDomainNamingContext', 'schemaNamingContext']
+        res = self.ldap_search_s('', SCOPE_BASE, '(objectclass=*)', attrs)
+        if res and len(res) > 0 and len(res[0]) > 1:
+            return res[-1][-1]
 
     def __well_known_container(self, container):
         if strcmp(container, 'system'):
@@ -104,7 +125,7 @@ class Connection(Ldap):
 
     def containers(self, container=None):
         if not container:
-            container = self.realm_dn
+            container = self.naming_context
         search = '(objectClass=*)'
         ret = self.ldap_search(container, SCOPE_ONELEVEL, search, ['name', 'objectClass'])
         results = []
@@ -118,7 +139,7 @@ class Connection(Ldap):
 
     def objs(self, container=None):
         if not container:
-            container = self.realm_dn
+            container = self.naming_context
         search = '(objectClass=*)'
         ret = self.ldap_search(container, SCOPE_ONELEVEL, search, ['name', 'objectClass'])
         return [(e[1]['name'][-1], e[1]['objectClass'][-1], e[0]) for e in ret]
