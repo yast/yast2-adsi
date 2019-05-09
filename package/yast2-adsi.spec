@@ -17,7 +17,7 @@
 
 
 Name:           yast2-adsi
-Version:        1.0
+Version:        1.1
 Release:        0
 Summary:        ADSI Edit for YaST
 License:        GPL-3.0
