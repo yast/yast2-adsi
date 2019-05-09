@@ -508,9 +508,9 @@ class ADSI:
                     current_object = UI.QueryWidget('items', 'Value')
                     self.__setup_menus(obj=True)
                 else:
-                    self.__obj_properties(current_container)
+                    self.__obj_properties(current_container, current_object)
             elif ret == 'properties':
-                self.__obj_properties(current_container)
+                self.__obj_properties(current_container, current_object)
             elif ret == 'next':
                 break
             elif ret == 'refresh':
@@ -525,8 +525,7 @@ class ADSI:
             UI.SetApplicationTitle('ADSI Edit')
         return ret
 
-    def __obj_properties(self, current_container):
-        current_object = UI.QueryWidget('items', 'Value')
+    def __obj_properties(self, current_container, current_object):
         if not current_object:
             current_object = current_container
         obj = self.conn.obj(current_object)[-1]
