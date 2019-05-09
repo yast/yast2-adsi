@@ -492,6 +492,9 @@ class ADSI:
                     if current_container:
                         menu_open = True
                         UI.OpenContextMenu(self.__objs_context_menu())
+                    else:
+                        menu_open = True
+                        UI.OpenContextMenu(self.__connect_context_menu())
             elif ret == 'context_add_object':
                 obj = NewObjDialog(self.conn, current_container).Show()
                 if obj:
@@ -543,6 +546,12 @@ class ADSI:
             Item(Id('refresh'), 'Refresh'),
             Item(Id('properties'), 'Properties'),
             ])
+
+    def __connect_context_menu(self):
+        return Term('menu', [
+            Item(Id('connect'), 'Connect to...'),
+            Item(Id('refresh'), 'Refresh'),
+        ])
 
     def __warn_delete(self, name):
         if six.PY3 and type(name) is bytes:
