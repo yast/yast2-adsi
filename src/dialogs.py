@@ -53,7 +53,10 @@ class AttrEdit:
         self.conn = conn
         self.attribute = attr
         self.value = val
-        self.attr_type = self.conn.schema['attributeTypes'][self.attribute.encode()]
+        if self.attribute.encode() in self.conn.schema['attributeTypes']:
+            self.attr_type = self.conn.schema['attributeTypes'][self.attribute.encode()]
+        else:
+            self.attr_type = None
 
     def __dialog(self):
         opts = tuple()
@@ -77,7 +80,7 @@ class AttrEdit:
 
     def Show(self):
         UI.SetApplicationTitle('String Attribute Editor')
-        if not self.attr_type['multi-valued'] or not self.attr_type['user-modifiable']:
+        if self.attr_type and (not self.attr_type['multi-valued'] or not self.attr_type['user-modifiable']):
             UI.OpenDialog(self.__dialog())
         else:
             return None
@@ -101,8 +104,9 @@ class ObjAttrs:
         self.conn = conn
         self.obj = obj
         attrs = []
-        for objectClass in self.obj['objectClass']:
-            attrs.extend(self.__extend_attrs(objectClass))
+        if 'objectClass' in self.obj: # RootDSE doesn't have an objectClass
+            for objectClass in self.obj['objectClass']:
+                attrs.extend(self.__extend_attrs(objectClass))
         attrs = list(set(attrs))
         for attr in attrs:
             if not attr.decode() in self.obj.keys():
@@ -137,7 +141,13 @@ class ObjAttrs:
         return val
 
     def __display_value(self, key, val):
-        attr_type = self.conn.schema['attributeTypes'][key.encode()]
+        if key.encode() in self.conn.schema['attributeTypes']:
+            attr_type = self.conn.schema['attributeTypes'][key.encode()]
+        else:
+            # RootDSE attributes don't show up in the schema, so we have to guess
+            if len(val) > 1: # multi-valued
+                return '; '.join([v.decode() for v in val])
+            return val[-1]
         if val == None:
             return '<not set>'
         else:
@@ -172,7 +182,11 @@ class ObjAttrs:
         ), HSpacing(3)))
 
     def Show(self):
-        UI.SetApplicationTitle(b'CN=%s Properties' % self.obj['cn'][-1])
+        if 'cn' in self.obj:
+            title = b'CN=%s Properties' % self.obj['cn'][-1]
+        else:
+            title = b''
+        UI.SetApplicationTitle(title)
         UI.OpenDialog(self.__new())
         while True:
             ret = UI.UserInput()
@@ -190,7 +204,7 @@ class ObjAttrs:
                 new_val = AttrEdit(self.conn, attr, val).Show()
                 if new_val is not None and self.obj[attr] != new_val:
                     self.obj[attr] = new_val
-                UI.SetApplicationTitle(b'CN=%s Properties' % self.obj['cn'][-1])
+                UI.SetApplicationTitle(title)
         UI.CloseDialog()
         return ret
 
@@ -464,6 +478,11 @@ class ADSI:
                     current_object = choice
                     self.__load_right_pane(current_container)
                     self.__setup_menus(obj=True)
+                elif choice == 'rootdse':
+                    current_container = ''
+                    current_object = None
+                    self.__load_right_pane(current_container)
+                    self.__setup_menus(obj=True)
                 else:
                     current_container = None
                     current_object = None
@@ -505,13 +524,15 @@ class ADSI:
 
     def __obj_properties(self, current_container):
         current_object = UI.QueryWidget('items', 'Value')
+        if not current_object:
+            current_object = current_container
         obj = self.conn.obj(current_object)[-1]
         old_obj = copy.deepcopy(obj)
         obj = ObjAttrs(self.conn, obj).Show()
         if obj:
             obj = {key: obj[key] for key in obj.keys() if obj[key] != None}
             self.conn.mod_obj(current_object, old_obj, obj)
-            self.__refresh(current_container, current_object)
+            self.__refresh(current_container, current_object if current_object != current_container else None)
 
     def __objs_context_menu(self):
         return Term('menu', [
@@ -568,11 +589,14 @@ class ADSI:
         return [Item(Id(e[0]), e[0].split(',')[0], e[0].lower() in expand.lower(), self.__fetch_children(e[0], expand)) for e in self.conn.containers(parent)]
 
     def __ldap_tree(self, expand=''):
-        if self.conn:
+        if self.conn and not self.conn.rootdse:
             top = self.conn.naming_context
             context = '%s [%s]' % (self.conn.naming_context_name, self.conn.dc_hostname)
             items = self.__fetch_children(top, expand)
             tree = [Item(context, True, [Item(Id(top), top, True, items)])]
+        elif self.conn and self.conn.rootdse:
+            context = 'RootDSE [%s]' % self.conn.dc_hostname
+            tree = [Item(context, True, [Item(Id('rootdse'), 'RootDSE', False, [])])]
         else:
             tree = []
 

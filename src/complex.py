@@ -15,16 +15,20 @@ class Connection(Ldap):
         super().__init__(lp, creds, ldap_url=ldap_url)
         self.realm_dn = self.realm_to_dn(self.realm)
         self.naming_contexts = self.__naming_contexts()
+        self.rootdse = False
         if self.ldap_url.dn == 'Default naming context':
             naming_context = 'defaultNamingContext'
         elif self.ldap_url.dn == 'Configuration':
             naming_context = 'configurationNamingContext'
         elif self.ldap_url.dn == 'Schema':
             naming_context = 'schemaNamingContext'
+        elif self.ldap_url.dn == 'RootDSE':
+            self.rootdse = True
         else:
             naming_context = self.ldap_url.dn
-        self.naming_context_name = self.ldap_url.dn
-        self.naming_context = self.naming_contexts[naming_context][-1].decode() if naming_context in self.naming_contexts else naming_context
+        if not self.rootdse:
+            self.naming_context_name = self.ldap_url.dn
+            self.naming_context = self.naming_contexts[naming_context][-1].decode() if naming_context in self.naming_contexts else naming_context
         self.schema = {}
         self.__load_schema()
 
