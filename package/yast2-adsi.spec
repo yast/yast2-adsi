@@ -22,7 +22,7 @@ Release:        0
 Summary:        ADSI Edit for YaST
 License:        GPL-3.0
 Group:          Productivity/Networking/Samba
-Url:            https://www.github.com/yast/yast-adsi
+Url:            https://github.com/yast/yast-adsi
 Source:         %{name}-%{version}.tar.bz2
 
 BuildRequires:  autoconf
