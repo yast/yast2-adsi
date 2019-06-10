@@ -13,11 +13,11 @@ ynclude_DATA =			\
 	complex.py
 
 adsi.desktop: adsi.desktop.in
-	sed -e 's;[@]CLIENTDIR[@];$(clientdir);g' < $(srcdir)/adsi.desktop.in > $(srcdir)/adsi.desktop
+	sed -e 's;[@]CLIENTDIR[@];$(clientdir);g' < $(srcdir)/org.opensuse.yast.ADSI.desktop.in > $(srcdir)/org.opensuse.yast.ADSI.desktop
 
 desktopdir = ${prefix}/share/applications/YaST2
 desktop_DATA =			\
-	adsi.desktop
+	org.opensuse.yast.ADSI.desktop
 
 moduledir = ${prefix}/share/YaST2/modules
 
@@ -28,4 +28,4 @@ ycpchook = adsi
 
 EXTRA_DIST = $(client_DATA) $(ynclude_DATA) $(module_DATA) $(desktop_DATA)
 
-CLEANFILES = adsi.desktop *.pyc
+CLEANFILES = org.opensuse.yast.ADSI.desktop *.pyc

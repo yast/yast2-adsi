@@ -12,26 +12,19 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
 Name:           yast2-adsi
-Version:        1.1
+Version:        1.2
 Release:        0
 Summary:        ADSI Edit for YaST
 License:        GPL-3.0
 Group:          Productivity/Networking/Samba
-Url:            http://www.github.com/yast-samba/yast-adsi
+Url:            https://github.com/yast/yast-adsi
 Source:         %{name}-%{version}.tar.bz2
-BuildArch:      noarch
-Requires:       krb5-client
-Requires:       samba-client
-Requires:       samba-python3
-Requires:       yast2
-Requires:       yast2-python3-bindings >= 4.0.0
-Requires:       python3-ldap
-Requires:       yast2-adcommon-python >= 0.3
+
 BuildRequires:  autoconf
 BuildRequires:  automake
 BuildRequires:  perl-XML-Writer
@@ -40,6 +33,16 @@ BuildRequires:  update-desktop-files
 BuildRequires:  yast2
 BuildRequires:  yast2-devtools
 BuildRequires:  yast2-testsuite
+
+Requires:       krb5-client
+Requires:       samba-client
+Requires:       samba-python3
+Requires:       yast2
+Requires:       yast2-python3-bindings >= 4.0.0
+Requires:       python3-ldap
+Requires:       yast2-adcommon-python >= 0.3
+
+BuildArch:      noarch
 
 %description
 The ADSI Edit for YaST module provides tools for viewing and modifying
@@ -53,13 +56,13 @@ an LDAP tree.
 
 %install
 %yast_install
+%yast_metainfo
 
 %files
-%defattr(-,root,root)
-%dir %{yast_yncludedir}/adsi
-%{yast_clientdir}/*.py
-%{yast_yncludedir}/adsi/*
-%{yast_desktopdir}/adsi.desktop
+%{yast_clientdir}
+%{yast_yncludedir}
+%{yast_desktopdir}
+%{yast_metainfodir}
 %doc %{yast_docdir}
 %license COPYING
 

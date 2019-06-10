@@ -16,8 +16,9 @@ X-SuSE-YaST-SortKey=
 X-SuSE-YaST-AutoInstResource=adsi
 
 Icon=yast-adsi
-Exec=/usr/bin/xdg-su -c 'yast2 adsi qt'
+Exec=/usr/bin/xdg-su -c 'yast2 adsi'
 
-Name=ADSI Edit
-GenericName=Manage LDAP
+Name=YaST ADSI Edit
+GenericName=ADSI Edit
+Comment=Manage LDAP Tree
 StartupNotify=true
