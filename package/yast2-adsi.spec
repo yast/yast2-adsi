@@ -17,7 +17,7 @@
 
 
 Name:           yast2-adsi
-Version:        1.2
+Version:        1.3
 Release:        0
 Summary:        ADSI Edit for YaST
 License:        GPL-3.0
@@ -40,7 +40,7 @@ Requires:       samba-python3
 Requires:       yast2
 Requires:       yast2-python3-bindings >= 4.0.0
 Requires:       python3-ldap
-Requires:       yast2-adcommon-python >= 0.3
+Requires:       yast2-adcommon-python >= 0.6
 
 BuildArch:      noarch
 
