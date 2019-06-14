@@ -16,7 +16,7 @@ X-SuSE-YaST-SortKey=
 X-SuSE-YaST-AutoInstResource=adsi
 
 Icon=yast-adsi
-Exec=/usr/bin/xdg-su -c 'yast2 adsi'
+Exec=xdg-su -c "/sbin/yast2 adsi"
 
 Name=YaST ADSI Edit
 GenericName=ADSI Edit
