@@ -25,14 +25,13 @@ Group:          Productivity/Networking/Samba
 Url:            https://github.com/yast/yast-adsi
 Source:         %{name}-%{version}.tar.bz2
 
-BuildRequires:  autoconf
-BuildRequires:  automake
 BuildRequires:  perl-XML-Writer
 BuildRequires:  python3
 BuildRequires:  update-desktop-files
 BuildRequires:  yast2
 BuildRequires:  yast2-devtools
 BuildRequires:  yast2-testsuite
+BuildRequires:  rubygem(%rb_default_ruby_abi:yast-rake)
 
 Requires:       krb5-client
 Requires:       samba-client
@@ -52,7 +51,6 @@ an LDAP tree.
 %setup -q
 
 %build
-%yast_build
 
 %install
 %yast_install
@@ -63,7 +61,6 @@ an LDAP tree.
 %{yast_yncludedir}
 %{yast_desktopdir}
 %{yast_metainfodir}
-%doc %{yast_docdir}
 %license COPYING
 
 %changelog
