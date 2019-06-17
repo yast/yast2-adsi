@@ -13,7 +13,6 @@ import six
 class Connection(Ldap):
     def __init__(self, lp, creds, ldap_url):
         super().__init__(lp, creds, ldap_url=ldap_url)
-        self.realm_dn = self.realm_to_dn(self.realm)
         self.naming_contexts = self.__naming_contexts()
         self.rootdse = False
         if self.ldap_url.dn == 'Default naming context':
@@ -29,11 +28,6 @@ class Connection(Ldap):
         if not self.rootdse:
             self.naming_context_name = self.ldap_url.dn
             self.naming_context = self.naming_contexts[naming_context][-1].decode() if naming_context in self.naming_contexts else naming_context
-        self.schema = {}
-        self.__load_schema()
-
-    def realm_to_dn(self, realm):
-        return ','.join(['DC=%s' % part for part in realm.lower().split('.')])
 
     def __naming_contexts(self):
         attrs = ['configurationNamingContext', 'defaultNamingContext', 'namingContexts', 'rootDomainNamingContext', 'schemaNamingContext']
@@ -53,71 +47,6 @@ class Connection(Ldap):
         result = self.ldap_search_s('<WKGUID=%s,%s>' % (wkguiduc, self.realm_dn), SCOPE_SUBTREE, '(objectClass=container)', stringify_ldap(['distinguishedName']))
         if result and len(result) > 0 and len(result[0]) > 1 and 'distinguishedName' in result[0][1] and len(result[0][1]['distinguishedName']) > 0:
             return result[0][1]['distinguishedName'][-1]
-
-    def __find_inferior_classes(self, name):
-        dn = 'CN=Schema,CN=Configuration,%s' % self.realm_dn
-        search = '(|(possSuperiors=%s)(systemPossSuperiors=%s))' % (name, name)
-        return [item[-1]['lDAPDisplayName'][-1] for item in self.ldap_search_s(dn, SCOPE_SUBTREE, search, ['lDAPDisplayName'])]
-
-    def __load_schema(self):
-        dn = self.l.search_subschemasubentry_s()
-        results = self.l.read_subschemasubentry_s(dn)
-
-        self.schema['attributeTypes'] = {}
-        self.schema['constructedAttributes'] = self.__constructed_attributes()
-        for attributeType in results['attributeTypes']:
-            m = re.match(b'\(\s+(?P<id>[0-9\.]+)\s+NAME\s+\'(?P<name>[\-\w]+)\'\s+(SYNTAX\s+\'(?P<syntax>[0-9\.]+)\'\s+)?(?P<info>.*)\)', attributeType)
-            if m:
-                name = m.group('name')
-                self.schema['attributeTypes'][name] = {}
-                self.schema['attributeTypes'][name]['id'] = m.group('id')
-                self.schema['attributeTypes'][name]['syntax'] = m.group('syntax')
-                self.schema['attributeTypes'][name]['multi-valued'] = b'SINGLE-VALUE' not in m.group('info')
-                self.schema['attributeTypes'][name]['collective'] = b'COLLECTIVE' in m.group('info')
-                self.schema['attributeTypes'][name]['user-modifiable'] = b'NO-USER-MODIFICATION' not in m.group('info')
-                if b'USAGE' in m.group('info'):
-                    usage = re.findall(b'.*\s+USAGE\s+(\w+)', m.group('info'))
-                    self.schema['attributeTypes'][name]['usage'] = usage[-1] if usage else 'userApplications'
-                else:
-                    self.schema['attributeTypes'][name]['usage'] = 'userApplications'
-            else:
-                raise ldap.LDAPError('Failed to parse attributeType: %s' % attributeType.decode())
-
-        self.schema['objectClasses'] = {}
-        for objectClass in results['objectClasses']:
-            m = re.match(b'\(\s+(?P<id>[0-9\.]+)\s+NAME\s+\'(?P<name>[\-\w]+)\'\s+(SUP\s+(?P<superior>[\-\w]+)\s+)?(?P<type>\w+)\s+(MUST\s+\((?P<must>[^\)]*)\)\s+)?(MAY\s+\((?P<may>[^\)]*)\)\s+)?\)', objectClass)
-            if m:
-                name = m.group('name')
-                self.schema['objectClasses'][name] = {}
-                self.schema['objectClasses'][name]['id'] = m.group('id')
-                self.schema['objectClasses'][name]['superior'] = m.group('superior')
-                self.schema['objectClasses'][name]['inferior'] = self.__find_inferior_classes(name.decode())
-                self.schema['objectClasses'][name]['type'] = m.group('type')
-                self.schema['objectClasses'][name]['must'] = m.group('must').strip().split(b' $ ') if m.group('must') else []
-                self.schema['objectClasses'][name]['may'] = m.group('may').strip().split(b' $ ') if m.group('may') else []
-            else:
-                raise ldap.LDAPError('Failed to parse objectClass: %s' % objectClass.decode())
-
-        self.schema['dITContentRules'] = {}
-        for dITContentRule in results['dITContentRules']:
-            m = re.match(b'\(\s+(?P<id>[0-9\.]+)\s+NAME\s+\'(?P<name>[\-\w]+)\'\s*(AUX\s+\((?P<aux>[^\)]*)\))?\s*(MUST\s+\((?P<must>[^\)]*)\)\s+)?\s*(MAY\s+\((?P<may>[^\)]*)\))?\s*(NOT\s+\((?P<not>[^\)]*)\))?\s*\)', dITContentRule)
-            if m:
-                name = m.group('name')
-                self.schema['dITContentRules'][name] = {}
-                self.schema['dITContentRules'][name]['id'] = m.group('id')
-                self.schema['dITContentRules'][name]['must'] = m.group('must').strip().split(b' $ ') if m.group('must') else []
-                self.schema['dITContentRules'][name]['may'] = m.group('may').strip().split(b' $ ') if m.group('may') else []
-                self.schema['dITContentRules'][name]['aux'] = m.group('aux').strip().split(b' $ ') if m.group('aux') else []
-                self.schema['dITContentRules'][name]['not'] = m.group('not').strip().split(b' $ ') if m.group('not') else []
-            else:
-                raise ldap.LDAPError('Failed to parse dITContentRule: %s' % dITContentRule.decode())
-
-    def __constructed_attributes(self):
-        # ADSI Hides constructed attributes, since they can't be modified.
-        search = '(&(systemFlags:1.2.840.113556.1.4.803:=4)(ObjectClass=attributeSchema))'
-        container = 'CN=Schema,CN=Configuration,%s' % self.realm_dn
-        ret = self.ldap_search(container, SCOPE_ONELEVEL, search, ['lDAPDisplayName'])
-        return [a[-1]['lDAPDisplayName'][-1] for a in ret]
 
     def container_inferiors(self, container):
         objectClass = self.obj(container, ['objectClass'])[-1]['objectClass'][-1]
