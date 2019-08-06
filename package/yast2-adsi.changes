@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Aug 06 14:54:46 UTC 2019 - dmulder@suse.com
+
+- Provide a more descriptive package name; (bsc#1144530);
+- 1.4
+
+-------------------------------------------------------------------
 Thu Jun 13 19:38:46 UTC 2019 - dmulder@suse.com
 
 - Move schema parsing code from adsi to the common code; (bsc#1138203);
