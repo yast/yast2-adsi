@@ -18,7 +18,7 @@ X-SuSE-YaST-AutoInstResource=adsi
 Icon=yast-adsi
 Exec=xdg-su -c "/sbin/yast2 adsi"
 
-Name=YaST ADSI Edit
+Name=YaST Active Directory Compatible Service Interfaces Editor
 GenericName=ADSI Edit
 Comment=Manage LDAP Tree
 StartupNotify=true

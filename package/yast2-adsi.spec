@@ -17,9 +17,9 @@
 
 
 Name:           yast2-adsi
-Version:        1.3
+Version:        1.4
 Release:        0
-Summary:        ADSI Edit for YaST
+Summary:        Active Directory Compatible Service Interfaces Editor
 License:        GPL-3.0
 Group:          Productivity/Networking/Samba
 Url:            https://github.com/yast/yast-adsi
