@@ -19,12 +19,6 @@ from samba.net import Net
 from samba.dcerpc import nbt
 from samba.credentials import Credentials
 
-def have_x():
-    from subprocess import Popen, PIPE
-    p = Popen(['xset', '-q'], stdout=PIPE, stderr=PIPE)
-    return p.wait() == 0
-have_advanced_gui = have_x()
-
 def octet_string_to_hex(data):
     return binascii.hexlify(data)
 
@@ -412,7 +406,7 @@ class ConnectionSettings:
                 if realm:
                     self.lp.set('realm', realm)
                 path = UI.QueryWidget('path', 'Value')
-                ycred = YCreds(self.creds)
+                ycred = YCreds(self.creds, auto_krb5_creds=False)
                 def cred_valid():
                     try:
                         self.conn = Connection(self.lp, self.creds, path)
