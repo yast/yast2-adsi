@@ -406,7 +406,7 @@ class ConnectionSettings:
                 if realm:
                     self.lp.set('realm', realm)
                 path = UI.QueryWidget('path', 'Value')
-                ycred = YCreds(self.creds)
+                ycred = YCreds(self.creds, auto_krb5_creds=False)
                 def cred_valid():
                     try:
                         self.conn = Connection(self.lp, self.creds, path)
