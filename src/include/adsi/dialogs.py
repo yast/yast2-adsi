@@ -19,12 +19,6 @@ from samba.net import Net
 from samba.dcerpc import nbt
 from samba.credentials import Credentials
 
-def have_x():
-    from subprocess import Popen, PIPE
-    p = Popen(['xset', '-q'], stdout=PIPE, stderr=PIPE)
-    return p.wait() == 0
-have_advanced_gui = have_x()
-
 def octet_string_to_hex(data):
     return binascii.hexlify(data)
 
