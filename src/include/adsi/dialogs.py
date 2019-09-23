@@ -411,6 +411,9 @@ class ConnectionSettings:
                     try:
                         self.conn = Connection(self.lp, self.creds, path)
                         return True
+                    except MemoryError: # Bug 1151713: Try again on Ubuntu
+                        self.conn = Connection(self.lp, self.creds, path)
+                        return True
                     except Exception as e:
                         ycpbuiltins.y2error(str(e))
                     return False
