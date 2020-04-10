@@ -50,7 +50,7 @@ class Connection(Ldap):
 
     def container_inferiors(self, container):
         objectClass = self.obj(container, ['objectClass'])[-1]['objectClass'][-1]
-        return self.schema['objectClasses'][objectClass]['inferior']
+        return self.schema_request_inferior_classes(objectClass)
 
     def containers(self, container=None):
         if not container:
@@ -60,7 +60,7 @@ class Connection(Ldap):
         results = []
         for e in ret:
             try:
-                if len(self.schema['objectClasses'][e[1]['objectClass'][-1]]['inferior']) > 0:
+                if len(self.schema_request_inferior_classes(e[1]['objectClass'][-1])) > 0:
                     results.append((e[0], e[1]['name'][-1]))
             except KeyError:
                 pass
